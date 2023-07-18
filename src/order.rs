@@ -1,6 +1,4 @@
-use crate::contracts::internal::{
-    dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
-};
+use crate::contracts::internal::{DutchOrder, ExclusiveDutchOrder, LimitOrder};
 
 use ethers::types::Bytes;
 

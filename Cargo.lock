@@ -3283,6 +3283,14 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "uniswapx-internal-bindings",
+]
+
+[[package]]
+name = "uniswapx-internal-bindings"
+version = "0.1.0"
+dependencies = [
+ "ethers",
 ]
 
 [[package]]

@@ -6,9 +6,7 @@ use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
 use super::OrderType;
 use crate::{
-    contracts::internal::{
-        dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
-    },
+    contracts::internal::{DutchOrder, ExclusiveDutchOrder, LimitOrder},
     order::{Order, OrderInner},
     subscriber::OrderSubscriber,
 };
