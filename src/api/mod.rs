@@ -1,7 +1,8 @@
 pub mod uniswap;
 use crate::order::Order;
+use futures::Stream;
 use serde::Deserialize;
-use std::{error::Error, future::Future, pin::Pin};
+use std::{collections::VecDeque, error::Error, future::Future, pin::Pin};
 
 /// https://github.com/Uniswap/uniswapx-sdk/blob/main/src/constants.ts
 /// only used for deriving our types from external api calls
@@ -10,6 +11,37 @@ pub enum OrderType {
     Dutch,
     Limit,
     ExclusiveDutch,
+}
+
+pub struct OrderSubscriber<C: OrderClient> {
+    cache: VecDeque<Order>,
+    idx: usize,
+
+    client: C,
+}
+
+/// a never ending subscription to open orders
+impl<C: OrderClient> OrderSubscriber<C> {
+    pub fn new(client: C) -> Self {
+        Self {
+            cache: VecDeque::new(),
+            idx: 0,
+            client,
+        }
+
+        // we could spawn a task here to dump into cache
+        // maybe use waker model to signal when cache is updated
+    }
+
+    pub async fn next(&mut self) -> () {
+        ()
+    }
+
+    pub fn subscribe(mut self) -> impl Stream<Item = ()> {
+        async_stream::stream! {
+            self.next().await;
+        }
+    }
 }
 
 pub trait OrderClient {

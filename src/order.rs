@@ -1,6 +1,8 @@
 use crate::contracts::internal::{
     common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
 };
+use futures::Stream;
+use tokio::task::JoinHandle;
 
 pub struct Order {
     pub inner: OrderInner,
@@ -17,6 +19,29 @@ impl Order {
     }
 
     pub fn validate(&self) -> bool {
+        todo!()
+    }
+}
+
+pub struct OrderHandlerInner<S, Func> 
+    where 
+    S: Stream<Item = Order>, 
+    Func: FnMut(Order) -> ()
+{
+    stream: S,
+    handler: Func,
+}
+
+pub struct OrderHandler {
+    handle: JoinHandle<()>,
+}
+
+impl OrderHandler {
+    fn spawn_handler<S, Func>(stream: S, handler: Func) -> Self 
+    where
+        S: Stream<Item = Order>,
+        Func: FnMut(Order) -> (),
+    {
         todo!()
     }
 }

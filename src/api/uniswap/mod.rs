@@ -1,5 +1,4 @@
 use std::pin::Pin;
-
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
 use super::OrderClient;
@@ -11,7 +10,6 @@ use crate::{
     order::{Order, OrderInner},
 };
 use alloy_sol_types::{Error as AlloySolTypeError, SolType};
-use futures::{stream, Stream};
 use reqwest::{Client, Url};
 
 const URL: &str = "https://api.uniswap.org/v2/orders";
