@@ -1,7 +1,8 @@
 use crate::contracts::internal::{
     common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
 };
-use futures::Stream;
+use futures::{Stream, StreamExt};
+use std::pin::Pin;
 use tokio::task::JoinHandle;
 
 pub struct Order {
@@ -23,26 +24,34 @@ impl Order {
     }
 }
 
-pub struct OrderHandlerInner<S, Func> 
-    where 
-    S: Stream<Item = Order>, 
-    Func: FnMut(Order) -> ()
+pub struct OrderHandlerInner<S, Func>
+where
+    S: Stream<Item = Order>,
+    Func: FnMut(Order) -> (),
 {
     stream: S,
     handler: Func,
 }
 
 pub struct OrderHandler {
+    // proabbly change this to a kill
     handle: JoinHandle<()>,
 }
 
 impl OrderHandler {
-    fn spawn_handler<S, Func>(stream: S, handler: Func) -> Self 
+    fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
     where
-        S: Stream<Item = Order>,
-        Func: FnMut(Order) -> (),
+        S: Stream<Item = Order> + Send + 'static,
+        Func: FnMut(Order) -> () + Send + 'static,
     {
-        todo!()
+        let handle = tokio::spawn(async move {
+            loop {
+                let order = stream.next().await.expect("this stream should never end");
+                handler(order)
+            }
+        });
+
+        Self { handle }
     }
 }
 

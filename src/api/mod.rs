@@ -33,13 +33,15 @@ impl<C: OrderClient> OrderSubscriber<C> {
         // maybe use waker model to signal when cache is updated
     }
 
-    pub async fn next(&mut self) -> Order {
+    /// will await until an order is found from the client
+    ///
+    pub async fn async_next(&mut self) -> Order {
         todo!()
     }
 
     pub fn subscribe(mut self) -> impl Stream<Item = Order> {
         async_stream::stream! {
-            yield self.next().await
+            yield self.async_next().await
         }
     }
 }
