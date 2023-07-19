@@ -1,9 +1,9 @@
 use crate::contracts::internal::{
-    dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
+    common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
 };
 
 pub struct Order {
-    inner: OrderInner,
+    pub inner: OrderInner,
     sig: String,
 }
 
@@ -11,12 +11,30 @@ impl Order {
     pub fn new(inner: OrderInner, sig: String) -> Self {
         Self { inner, sig }
     }
+
+    pub fn info(&self) -> &OrderInfo {
+        self.inner.info()
+    }
+
+    pub fn validate(&self) -> bool {
+        todo!()
+    }
 }
 
 pub enum OrderInner {
     Dutch(DutchOrder),
     Limit(LimitOrder),
     ExclusiveDutch(ExclusiveDutchOrder),
+}
+
+impl OrderInner {
+    pub fn info(&self) -> &OrderInfo {
+        match self {
+            OrderInner::Dutch(o) => &o.info,
+            OrderInner::Limit(o) => &o.info,
+            OrderInner::ExclusiveDutch(o) => &o.info,
+        }
+    }
 }
 
 impl From<DutchOrder> for OrderInner {
@@ -34,11 +52,5 @@ impl From<LimitOrder> for OrderInner {
 impl From<ExclusiveDutchOrder> for OrderInner {
     fn from(order: ExclusiveDutchOrder) -> Self {
         OrderInner::ExclusiveDutch(order)
-    }
-}
-
-impl Order {
-    pub fn validate(&self) -> bool {
-        todo!()
     }
 }

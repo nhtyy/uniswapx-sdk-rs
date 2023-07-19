@@ -1,12 +1,14 @@
+use std::pin::Pin;
+
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
+use super::OrderClient;
 use super::OrderType;
 use crate::{
     contracts::internal::{
         dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
     },
     order::{Order, OrderInner},
-    subscriber::OrderSubscriber,
 };
 use alloy_sol_types::{Error as AlloySolTypeError, SolType};
 use futures::{stream, Stream};
@@ -14,11 +16,16 @@ use reqwest::{Client, Url};
 
 const URL: &str = "https://api.uniswap.org/v2/orders";
 
-pub struct OrderClient {
-    // cache: Vec<Order>,
-    // idx: usize,
+pub struct UniswapClient {
     client: Client,
     url: Url,
+    chain_id: usize,
+}
+
+#[derive(Debug)]
+pub enum ClientError {
+    Network(reqwest::Error),
+    Encoding(AlloySolTypeError),
 }
 
 pub struct ApiParams {
@@ -33,17 +40,19 @@ impl ApiParams {
     }
 }
 
-impl OrderClient {
-    pub fn new() -> Self {
+impl UniswapClient {
+    pub fn new(chain_id: usize) -> Self {
         Self {
-            // cache: Vec::new(),
-            // idx: 0,
             client: Client::new(),
             url: Url::parse(URL).expect("URL to parse"),
+            chain_id,
         }
     }
 
-    pub async fn get_orders(&self, params: ApiParams) -> Result<OrderResponse, reqwest::Error> {
+    pub async fn get_orders_with_params(
+        &self,
+        params: ApiParams,
+    ) -> Result<OrderResponse, reqwest::Error> {
         Ok(self
             .client
             .get(self.url.clone())
@@ -56,16 +65,25 @@ impl OrderClient {
     }
 }
 
-impl OrderSubscriber for OrderClient {
-    type InternalErr = reqwest::Error;
+impl OrderClient for UniswapClient {
+    type ClientError = ClientError;
 
-    fn subscribe(self) -> Box<dyn Stream<Item = Result<Order, Self::InternalErr>>> {
-        Box::new(stream::unfold(self, |client| async move { todo!() }))
+    /// hardcode 10 orders per batch
+    fn get_open_orders(
+        self,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<Order>, Self::ClientError>>>> {
+        Box::pin(async move {
+            let res = self
+                .get_orders_with_params(ApiParams {
+                    limit: 10,
+                    chain_id: self.chain_id,
+                    order_status: OrderStatus::Open,
+                })
+                .await?;
+
+            Ok(Vec::try_from(res)?)
+        })
     }
-}
-
-fn clean_encoding(s: &str) -> &str {
-    &s[66..]
 }
 
 impl TryFrom<OrderResponseInner> for DutchOrder {
@@ -123,4 +141,31 @@ impl TryFrom<OrderResponse> for Vec<Order> {
             .map(|order| Order::try_from(order))
             .collect()
     }
+}
+
+impl std::error::Error for ClientError {}
+
+impl std::fmt::Display for ClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ClientError::Network(e) => write!(f, "Network error: {}", e),
+            ClientError::Encoding(e) => write!(f, "Encoding error: {}", e),
+        }
+    }
+}
+
+impl From<reqwest::Error> for ClientError {
+    fn from(e: reqwest::Error) -> Self {
+        Self::Network(e)
+    }
+}
+
+impl From<AlloySolTypeError> for ClientError {
+    fn from(e: AlloySolTypeError) -> Self {
+        Self::Encoding(e)
+    }
+}
+
+fn clean_encoding(s: &str) -> &str {
+    &s[66..]
 }

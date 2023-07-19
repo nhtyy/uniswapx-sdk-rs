@@ -2,27 +2,17 @@ pub mod api;
 pub mod contracts;
 pub mod order;
 pub mod server;
-pub mod subscriber;
-use api::uniswap::{ApiParams, OrderClient};
-use order::Order;
 
-use alloy_sol_types::SolType;
-use contracts::internal::{common::OrderInfo, exclusive_dutch::ExclusiveDutchOrder};
+use api::{uniswap::UniswapClient, OrderClient};
+use order::Order;
 
 #[tokio::main]
 async fn main() {
-    let client = OrderClient::new();
+    let client = UniswapClient::new(1);
 
-    let mut res = client
-        .get_orders(ApiParams {
-            limit: 10,
-            chain_id: 1,
-            order_status: api::uniswap::response_types::OrderStatus::Open,
-        })
-        .await
-        .unwrap();
+    let mut res = client.get_open_orders().await.unwrap();
 
-    println!("{:#?}", res);
-
-    let order = Order::try_from(res.orders.pop().unwrap()).unwrap();
+    for order in res.iter() {
+        println!("{:?}", order.info().deadline.to_string());
+    }
 }
