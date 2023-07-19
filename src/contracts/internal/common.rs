@@ -1,43 +1,54 @@
-use ethers::{
-    contract::{EthAbiCodec, EthAbiType},
-    types::{Address, Bytes, U256},
-};
+use alloy_sol_types::sol;
 
-// https://github.com/Uniswap/UniswapX/blob/7494d01d2efa7ef16aa3c4065e3fbd7db57c580c/src/base/ReactorStructs.sol#L10
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct OrderInfo {
-    reactor: Address,
-    swapper: Address,
-    nonce: U256,
-    deadline: U256,
-    additional_validation_contract: Address,
-    additional_validation_data: Bytes,
-}
+sol! {
+    /// @dev generic order information
+    ///  should be included as the first field in any concrete order types
+    struct OrderInfo {
+        // The address of the reactor that this order is targeting
+        // Note that this must be included in every order so the swapper
+        // signature commits to the specific reactor that they trust to fill their order properly
+        address reactor;
+        // The address of the user which created the order
+        // Note that this must be included so that order hashes are unique by swapper
+        address swapper;
+        // The nonce of the order, allowing for signature replay protection and cancellation
+        uint256 nonce;
+        // The timestamp after which this order is no longer valid
+        uint256 deadline;
+        // Custom validation contract
+        address additionalValidationContract;
+        // Encoded validation params for additionalValidationContract
+        bytes additionalValidationData;
+    }
 
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct InputToken {
-    token: Address,
-    amount: U256,
-    max_amount: U256,
-}
+    /// @dev tokens that need to be sent from the swapper in order to satisfy an order
+    struct InputToken {
+        address token;
+        uint256 amount;
+        // Needed for dutch decaying inputs
+        uint256 maxAmount;
+    }
 
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct OutputToken {
-    token: Address,
-    amount: U256,
-    recipient: Address,
-}
+    /// @dev tokens that need to be received by the recipient in order to satisfy an order
+    struct OutputToken {
+        address token;
+        uint256 amount;
+        address recipient;
+    }
 
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct ResolvedOrder {
-    pub info: OrderInfo,
-    pub input: InputToken,
-    pub outputs: Vec<OutputToken>,
-}
+    /// @dev generic concrete order that specifies exact tokens which need to be sent and received
+    struct ResolvedOrder {
+        OrderInfo info;
+        InputToken input;
+        OutputToken[] outputs;
+        bytes sig;
+        bytes32 hash;
+    }
 
-/// used in the contract as entrypoint to all reactors
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct SignedOrder {
-    order: Bytes,
-    sig: Bytes,
+    /// @dev external struct including a generic encoded order and swapper signature
+    ///  The order bytes will be parsed and mapped to a ResolvedOrder in the concrete reactor contract
+    struct SignedOrder {
+        bytes order;
+        bytes sig;
+    }
 }

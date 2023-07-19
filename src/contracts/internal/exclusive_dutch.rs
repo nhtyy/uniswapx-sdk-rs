@@ -2,18 +2,23 @@ use super::{
     common::OrderInfo,
     dutch::{DutchInput, DutchOutput},
 };
-use ethers::{
-    contract::{EthAbiCodec, EthAbiType},
-    types::{Address, U256},
-};
+use alloy_sol_types::sol;
 
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct ExclusiveDutchOrder {
-    info: OrderInfo,
-    decay_start_time: U256,
-    decay_end_time: U256,
-    exclusive_filler: Address,
-    exclusivity_override_bps: U256,
-    input: DutchInput,
-    output: Vec<DutchOutput>,
+sol! {
+    struct ExclusiveDutchOrder {
+        // generic order information
+        OrderInfo info;
+        // The time at which the DutchOutputs start decaying
+        uint256 decayStartTime;
+        // The time at which price becomes static
+        uint256 decayEndTime;
+        // The address who has exclusive rights to the order until decayStartTime
+        address exclusiveFiller;
+        // The amount in bps that a non-exclusive filler needs to improve the outputs by to be able to fill the order
+        uint256 exclusivityOverrideBps;
+        // The tokens that the swapper will provide when settling the order
+        DutchInput input;
+        // The tokens that must be received to satisfy the order
+        DutchOutput[] outputs;
+    }
 }

@@ -1,7 +1,3 @@
-use ethers::{
-    abi::{self, AbiDecode},
-    types::Bytes,
-};
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
 use super::OrderType;
@@ -12,6 +8,7 @@ use crate::{
     order::{Order, OrderInner},
     subscriber::OrderSubscriber,
 };
+use alloy_sol_types::{Error as AlloySolTypeError, SolType};
 use futures::{stream, Stream};
 use reqwest::{Client, Url};
 
@@ -67,42 +64,44 @@ impl OrderSubscriber for OrderClient {
     }
 }
 
+fn clean_encoding(s: &str) -> &str {
+    &s[66..]
+}
+
 impl TryFrom<OrderResponseInner> for DutchOrder {
-    type Error = abi::AbiError;
+    type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        DutchOrder::decode_hex(order.encoded_order)
+        DutchOrder::hex_decode(clean_encoding(&order.encoded_order), true)
     }
 }
 
 impl TryFrom<OrderResponseInner> for LimitOrder {
-    type Error = abi::AbiError;
+    type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        LimitOrder::decode_hex(order.encoded_order)
+        LimitOrder::hex_decode(clean_encoding(&order.encoded_order), true)
     }
 }
 
 impl TryFrom<OrderResponseInner> for ExclusiveDutchOrder {
-    type Error = abi::AbiError;
+    type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        ExclusiveDutchOrder::decode_hex(order.encoded_order)
+        ExclusiveDutchOrder::hex_decode(clean_encoding(&order.encoded_order), true)
     }
 }
 
 impl TryFrom<OrderResponseInner> for Order {
-    type Error = abi::AbiError;
+    type Error = AlloySolTypeError;
 
+    // todo! uniswap api labels exlusive dutch as a dutch
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        // todo!() probably need to do hex string to bytes
-        // let sig = order.signature.clone();
-
-        let sig: Bytes = Default::default();
+        let sig = order.signature.clone();
 
         Ok(Self::new(
             match order.order_type {
-                OrderType::Dutch => OrderInner::from(DutchOrder::try_from(order)?),
+                OrderType::Dutch => OrderInner::from(ExclusiveDutchOrder::try_from(order)?),
                 OrderType::Limit => OrderInner::from(LimitOrder::try_from(order)?),
                 OrderType::ExclusiveDutch => {
                     OrderInner::from(ExclusiveDutchOrder::try_from(order)?)
@@ -115,7 +114,7 @@ impl TryFrom<OrderResponseInner> for Order {
 
 /// compiler magic
 impl TryFrom<OrderResponse> for Vec<Order> {
-    type Error = abi::AbiError;
+    type Error = AlloySolTypeError;
 
     fn try_from(response: OrderResponse) -> Result<Self, Self::Error> {
         response

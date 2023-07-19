@@ -2,23 +2,17 @@ use crate::contracts::internal::{
     dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
 };
 
-use ethers::types::Bytes;
-
-/// internal type we use to represnt orders
-/// this should use ethers types
-#[derive(Debug)]
 pub struct Order {
     inner: OrderInner,
-    sig: Bytes,
+    sig: String,
 }
 
 impl Order {
-    pub fn new(inner: OrderInner, sig: Bytes) -> Self {
+    pub fn new(inner: OrderInner, sig: String) -> Self {
         Self { inner, sig }
     }
 }
 
-#[derive(Debug)]
 pub enum OrderInner {
     Dutch(DutchOrder),
     Limit(LimitOrder),

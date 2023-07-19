@@ -1,9 +1,14 @@
 use super::common::{InputToken, OrderInfo, OutputToken};
-use ethers::contract::{EthAbiCodec, EthAbiType};
+use alloy_sol_types::sol;
 
-#[derive(Clone, EthAbiType, EthAbiCodec, Debug, PartialEq, Eq, Hash)]
-pub struct LimitOrder {
-    info: OrderInfo,
-    input: InputToken,
-    outputs: Vec<OutputToken>,
+sol! {
+    /// @dev External struct used to specify simple limit orders
+    struct LimitOrder {
+        // generic order information
+        OrderInfo info;
+        // The tokens that the swapper will provide when settling the order
+        InputToken input;
+        // The tokens that must be received to satisfy the order
+        OutputToken[] outputs;
+    }
 }

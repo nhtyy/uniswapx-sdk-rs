@@ -3,9 +3,11 @@ pub mod contracts;
 pub mod order;
 pub mod server;
 pub mod subscriber;
-
 use api::uniswap::{ApiParams, OrderClient};
 use order::Order;
+
+use alloy_sol_types::SolType;
+use contracts::internal::{common::OrderInfo, exclusive_dutch::ExclusiveDutchOrder};
 
 #[tokio::main]
 async fn main() {
