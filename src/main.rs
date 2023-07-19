@@ -13,6 +13,6 @@ async fn main() {
     let mut res = client.get_open_orders().await.unwrap();
 
     for order in res.iter() {
-        println!("{:?}", order.info().deadline.to_string());
+        println!("{:?}", order.sig);
     }
 }

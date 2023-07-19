@@ -1,13 +1,17 @@
 use crate::contracts::internal::{
-    common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
+    common::{OrderInfo, SignedOrder},
+    dutch::DutchOrder,
+    exclusive_dutch::ExclusiveDutchOrder,
+    limit::LimitOrder,
 };
+use alloy_sol_types::SolType;
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use tokio::task::JoinHandle;
 
 pub struct Order {
     pub inner: OrderInner,
-    sig: String,
+    pub sig: String,
 }
 
 impl Order {
@@ -69,6 +73,14 @@ impl OrderInner {
             OrderInner::ExclusiveDutch(o) => &o.info,
         }
     }
+
+    pub fn encode(&self) -> Vec<u8> {
+        match self {
+            OrderInner::Dutch(o) => DutchOrder::encode(o),
+            OrderInner::Limit(o) => LimitOrder::encode(o),
+            OrderInner::ExclusiveDutch(o) => ExclusiveDutchOrder::encode(o),
+        }
+    }
 }
 
 impl From<DutchOrder> for OrderInner {
@@ -86,5 +98,16 @@ impl From<LimitOrder> for OrderInner {
 impl From<ExclusiveDutchOrder> for OrderInner {
     fn from(order: ExclusiveDutchOrder) -> Self {
         OrderInner::ExclusiveDutch(order)
+    }
+}
+
+impl From<Order> for SignedOrder {
+    fn from(order: Order) -> Self {
+        // Self {
+        //     order: order.inner.encode(),
+        //     sig: todo!(), // hex decode into bytes, then make a bytes type
+        // }
+
+        todo!()
     }
 }

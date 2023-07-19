@@ -2,7 +2,13 @@ pub mod uniswap;
 use crate::order::Order;
 use futures::Stream;
 use serde::Deserialize;
-use std::{collections::VecDeque, error::Error, future::Future, pin::Pin};
+use std::{
+    collections::VecDeque,
+    error::Error,
+    future::Future,
+    pin::Pin,
+    sync::{Arc, Mutex},
+};
 
 /// https://github.com/Uniswap/uniswapx-sdk/blob/main/src/constants.ts
 /// only used for deriving our types from external api calls
@@ -14,7 +20,7 @@ pub enum OrderType {
 }
 
 pub struct OrderSubscriber<C: OrderClient> {
-    cache: VecDeque<Order>,
+    buf: Arc<Mutex<VecDeque<Order>>>,
     idx: usize,
 
     client: C,
@@ -24,13 +30,10 @@ pub struct OrderSubscriber<C: OrderClient> {
 impl<C: OrderClient> OrderSubscriber<C> {
     pub fn new(client: C) -> Self {
         Self {
-            cache: VecDeque::new(),
+            buf: Arc::new(Mutex::new(VecDeque::new())),
             idx: 0,
             client,
         }
-
-        // we could spawn a task here to dump into cache
-        // maybe use waker model to signal when cache is updated
     }
 
     /// will await until an order is found from the client
@@ -41,7 +44,15 @@ impl<C: OrderClient> OrderSubscriber<C> {
 
     pub fn subscribe(mut self) -> impl Stream<Item = Order> {
         async_stream::stream! {
-            yield self.async_next().await
+            tokio::select! {
+                order = self.async_next() => {
+                    yield order;
+                },
+                _ = tokio::signal::ctrl_c() => {
+                    println!("shutting down");
+                    return;
+                }
+            }
         }
     }
 }
