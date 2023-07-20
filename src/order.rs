@@ -7,7 +7,7 @@ use crate::{
     },
     utils::spawn_with_shutdown,
 };
-use alloy_sol_types::{SolStruct, SolType, B256};
+use alloy_sol_types::{sol_data::Uint, SolStruct, SolType, B256};
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use tokio::task::JoinHandle;
@@ -74,6 +74,10 @@ impl Order {
 
     pub fn type_hash(&self) -> B256 {
         self.inner.type_hash()
+    }
+
+    pub fn deadline(&self) -> <Uint<256> as SolType>::RustType {
+        self.info().deadline
     }
 
     pub fn validate(&self) -> bool {
