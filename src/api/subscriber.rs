@@ -3,14 +3,8 @@ use crate::{
     order::{Order, OrderCache},
     utils::{run_with_shutdown, spawn_with_shutdown},
 };
-use alloy_sol_types::B256;
 use futures::Stream;
-use std::{
-    collections::{HashMap, VecDeque},
-    ops::{Deref, DerefMut},
-    pin::Pin,
-    sync::Arc,
-};
+use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 
@@ -31,7 +25,7 @@ impl OrderSubscriber {
 
         // spawn a task that dumps unseen orders into the buffer
         // warning: assumes respsones will always be in the same order!
-        spawn_with_shutdown(fill_buf(
+        spawn_with_shutdown(Self::fill_buf(
             buf.clone(),
             cache.clone(),
             client.clone(),
@@ -67,54 +61,54 @@ impl OrderSubscriber {
             }
         }
     }
-}
 
-// hits the api and condintally pushes them into a buffer
-async fn fill_buf<C: OrderClient>(
-    buf: Arc<Mutex<VecDeque<Order>>>,
-    cache: Arc<Mutex<OrderCache>>,
-    client: Arc<C>,
-    waker: Arc<Notify>,
-    sleep: u64,
-) {
-    loop {
-        let mut buf = buf.lock().await;
-        let mut cache = cache.lock().await;
+    // hits the api and condintally pushes orders into the buffer
+    async fn fill_buf<C: OrderClient>(
+        buf: Arc<Mutex<VecDeque<Order>>>,
+        cache: Arc<Mutex<OrderCache>>,
+        client: Arc<C>,
+        waker: Arc<Notify>,
+        sleep: u64,
+    ) {
+        loop {
+            let mut buf = buf.lock().await;
+            let mut cache = cache.lock().await;
 
-        match client.get_open_orders().await {
-            Ok(orders) => {
-                println!("got orders: {:?}, buf size: {:?}", orders.len(), buf.len());
+            match client.get_open_orders().await {
+                Ok(orders) => {
+                    println!("got orders: {:?}, buf size: {:?}", orders.len(), buf.len());
 
-                if orders.len() == 0 {
-                    println!("no orders received from client");
-                    continue;
-                }
+                    if orders.len() == 0 {
+                        println!("no orders received from client");
+                        continue;
+                    }
 
-                let len_before = buf.len();
+                    let len_before = buf.len();
 
-                for order in orders {
-                    if !cache.contains_key(&order.struct_hash()) {
-                        cache.insert(order.struct_hash(), order.clone());
-                        buf.push_back(order);
+                    for order in orders {
+                        if !cache.contains_key(&order.struct_hash()) {
+                            cache.insert(order.struct_hash(), order.clone());
+                            buf.push_back(order);
+                        }
+                    }
+
+                    cache.flush_closed_orders(0); // todo!
+
+                    let len_after = buf.len();
+
+                    drop(cache);
+                    drop(buf);
+
+                    if len_before == 0 && len_after > 0 {
+                        waker.notify_one();
                     }
                 }
-
-                cache.flush_closed_orders(0); // todo!
-
-                let len_after = buf.len();
-
-                drop(cache);
-                drop(buf);
-
-                if len_before == 0 && len_after > 0 {
-                    waker.notify_one();
+                Err(e) => {
+                    println!("error: {:?}", e);
                 }
             }
-            Err(e) => {
-                println!("error: {:?}", e);
-            }
-        }
 
-        tokio::time::sleep(std::time::Duration::from_secs(sleep)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(sleep)).await;
+        }
     }
 }

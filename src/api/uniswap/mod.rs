@@ -79,43 +79,22 @@ impl OrderClient for UniswapClient {
     }
 }
 
-impl TryFrom<OrderResponseInner> for DutchOrder {
-    type Error = AlloySolTypeError;
-
-    fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        DutchOrder::hex_decode_single(&order.encoded_order, true)
-    }
-}
-
-impl TryFrom<OrderResponseInner> for LimitOrder {
-    type Error = AlloySolTypeError;
-
-    fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        LimitOrder::hex_decode_single(&order.encoded_order, true)
-    }
-}
-
-impl TryFrom<OrderResponseInner> for ExclusiveDutchOrder {
-    type Error = AlloySolTypeError;
-
-    fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        ExclusiveDutchOrder::hex_decode_single(&order.encoded_order, true)
-    }
-}
-
+// todo! uniswap api labels exlusive dutch as a dutch
 impl TryFrom<OrderResponseInner> for Order {
     type Error = AlloySolTypeError;
 
-    // todo! uniswap api labels exlusive dutch as a dutch
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
         let sig = order.signature.clone();
 
         Ok(Self::new(
             match order.order_type {
-                OrderType::Dutch => OrderInner::from(ExclusiveDutchOrder::try_from(order)?),
-                OrderType::Limit => OrderInner::from(LimitOrder::try_from(order)?),
+                OrderType::Dutch => {
+                    OrderInner::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
+                    // see todo
+                }
+                OrderType::Limit => OrderInner::from(LimitOrder::try_from(order.encoded_order)?),
                 OrderType::ExclusiveDutch => {
-                    OrderInner::from(ExclusiveDutchOrder::try_from(order)?)
+                    OrderInner::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
                 }
             },
             sig,

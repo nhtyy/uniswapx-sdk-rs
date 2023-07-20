@@ -58,8 +58,17 @@ impl OrderInner {
             OrderInner::ExclusiveDutch(o) => o.eip712_type_hash(),
         }
     }
+
+    pub fn order_type(&self) -> crate::api::OrderType {
+        match self {
+            OrderInner::Dutch(_) => crate::api::OrderType::Dutch,
+            OrderInner::Limit(_) => crate::api::OrderType::Limit,
+            OrderInner::ExclusiveDutch(_) => crate::api::OrderType::ExclusiveDutch,
+        }
+    }
 }
 
+// part of macro also
 impl Order {
     pub fn new(inner: OrderInner, sig: String) -> Self {
         Self { inner, sig }
@@ -75,6 +84,10 @@ impl Order {
 
     pub fn type_hash(&self) -> B256 {
         self.inner.type_hash()
+    }
+
+    pub fn order_type(&self) -> crate::api::OrderType {
+        self.inner.order_type()
     }
 
     pub fn deadline(&self) -> <Uint<256> as SolType>::RustType {
@@ -159,13 +172,26 @@ impl From<ExclusiveDutchOrder> for OrderInner {
     }
 }
 
-impl From<Order> for SignedOrder {
-    fn from(order: Order) -> Self {
-        // Self {
-        //     order: order.inner.encode(),
-        //     sig: todo!(), // hex decode into bytes, then make a bytes type
-        // }
+impl TryFrom<String> for DutchOrder {
+    type Error = alloy_sol_types::Error;
 
-        todo!()
+    fn try_from(hex_encoded: String) -> Result<Self, Self::Error> {
+        DutchOrder::hex_decode_single(&hex_encoded, true)
+    }
+}
+
+impl TryFrom<String> for LimitOrder {
+    type Error = alloy_sol_types::Error;
+
+    fn try_from(hex_encoded: String) -> Result<Self, Self::Error> {
+        LimitOrder::hex_decode_single(&hex_encoded, true)
+    }
+}
+
+impl TryFrom<String> for ExclusiveDutchOrder {
+    type Error = alloy_sol_types::Error;
+
+    fn try_from(hex_encoded: String) -> Result<Self, Self::Error> {
+        ExclusiveDutchOrder::hex_decode_single(&hex_encoded, true)
     }
 }
