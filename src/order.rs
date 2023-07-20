@@ -1,8 +1,11 @@
-use crate::contracts::internal::{
-    common::{OrderInfo, SignedOrder},
-    dutch::DutchOrder,
-    exclusive_dutch::ExclusiveDutchOrder,
-    limit::LimitOrder,
+use crate::{
+    api::with_shutdown,
+    contracts::internal::{
+        common::{OrderInfo, SignedOrder},
+        dutch::DutchOrder,
+        exclusive_dutch::ExclusiveDutchOrder,
+        limit::LimitOrder,
+    },
 };
 use alloy_sol_types::{SolStruct, SolType, B256};
 use futures::{Stream, StreamExt};
@@ -77,8 +80,7 @@ impl Order {
 }
 
 pub struct OrderHandler {
-    // proabbly change this to a kill
-    handle: JoinHandle<()>,
+    handle: JoinHandle<Option<()>>,
 }
 
 impl OrderHandler {
@@ -87,12 +89,12 @@ impl OrderHandler {
         S: Stream<Item = Order> + Send + 'static,
         Func: FnMut(Order) -> () + Send + 'static,
     {
-        let handle = tokio::spawn(async move {
+        let handle = tokio::spawn(with_shutdown(async move {
             loop {
                 let order = stream.next().await.expect("this stream should never end");
-                handler(order)
+                handler(order);
             }
-        });
+        }));
 
         Self { handle }
     }

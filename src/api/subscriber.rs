@@ -1,4 +1,5 @@
 use super::client::OrderClient;
+use super::with_shutdown;
 use crate::order::Order;
 use alloy_sol_types::B256;
 use futures::Stream;
@@ -17,12 +18,12 @@ impl OrderSubscriber {
         let buf: Arc<Mutex<VecDeque<Order>>> = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
 
-        tokio::spawn(order_client_listener(
+        tokio::spawn(with_shutdown(order_client_listener(
             buf.clone(),
             client.clone(),
             waker.clone(),
             sleep,
-        ));
+        )));
 
         Box::pin(async_stream::stream! {
             waker.notified().await;
