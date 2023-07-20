@@ -1,12 +1,12 @@
 use super::client::OrderClient;
-use crate::{
-    order::Order,
-    utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
-};
 use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
+use uniswapx_sdk_core::{
+    order::Order,
+    utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
+};
 
 pub type OrderStream<C> =
     Pin<Box<dyn Stream<Item = Result<Order, <C as OrderClient>::ClientError>>>>;

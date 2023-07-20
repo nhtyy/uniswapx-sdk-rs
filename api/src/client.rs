@@ -1,4 +1,4 @@
-use crate::order::Order;
+use uniswapx_sdk_core::order::Order;
 
 #[async_trait::async_trait]
 pub trait OrderClient: Send + Sync {

@@ -1,5 +1,5 @@
 [package]
-name = "uniswapx"
+name = "uniswapx-sdk-api"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,3 +16,4 @@ async-stream = "0.3.0"
 async-trait = "0.1.51"
 futures-util = "0.3.19"
 alloy-primitives = { version = "0.2.0"}
+uniswapx-sdk-core = { path = "../core" }

@@ -1,5 +1,5 @@
-use super::super::OrderType;
 use serde::{Deserialize, Serialize};
+use uniswapx_sdk_core::order::OrderType;
 
 /// idk where tf this comes from this is just the response from the api in the docs
 #[derive(Deserialize, Debug)]

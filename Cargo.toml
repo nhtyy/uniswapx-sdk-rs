@@ -8,14 +8,14 @@ members=[
 	"ethers-bindings",
 	"server",
 	"api",
-	"sdk"
+	"core"
 ]
 
 default_members=[
 	"ethers-bindings",
-        "server",
-        "api",
-        "sdk"
+	"server",
+	"api",
+	"core"
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

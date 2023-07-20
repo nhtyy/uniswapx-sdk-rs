@@ -1,15 +1,15 @@
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
 use super::client::OrderClient;
-use super::OrderType;
-use crate::{
+use alloy_sol_types::Error as AlloySolTypeError;
+use reqwest::{Client, Url};
+use uniswapx_sdk_core::order::OrderType;
+use uniswapx_sdk_core::{
     contracts::internal::{
         dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
     },
     order::{Order, OrderInner},
 };
-use alloy_sol_types::Error as AlloySolTypeError;
-use reqwest::{Client, Url};
 
 const URL: &str = "https://api.uniswap.org/v2/orders";
 
