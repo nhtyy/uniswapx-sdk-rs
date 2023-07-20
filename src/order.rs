@@ -44,6 +44,14 @@ impl OrderInner {
             OrderInner::ExclusiveDutch(o) => o.eip712_hash_struct(),
         }
     }
+
+    pub fn type_hash(&self) -> B256 {
+        match self {
+            OrderInner::Dutch(o) => o.eip712_type_hash(),
+            OrderInner::Limit(o) => o.eip712_type_hash(),
+            OrderInner::ExclusiveDutch(o) => o.eip712_type_hash(),
+        }
+    }
 }
 
 impl Order {
@@ -53,6 +61,14 @@ impl Order {
 
     pub fn info(&self) -> &OrderInfo {
         self.inner.info()
+    }
+
+    pub fn struct_hash(&self) -> B256 {
+        self.inner.struct_hash()
+    }
+
+    pub fn type_hash(&self) -> B256 {
+        self.inner.type_hash()
     }
 
     pub fn validate(&self) -> bool {
