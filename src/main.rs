@@ -2,17 +2,23 @@ pub mod api;
 pub mod contracts;
 pub mod order;
 pub mod server;
+pub mod utils;
 
-use api::{client::OrderClient, subscriber::OrderSubscriber, uniswap::UniswapClient};
+use api::{
+    subscriber::{OrderCache, OrderSubscriber},
+    uniswap::UniswapClient,
+};
 use futures::stream::StreamExt;
-use futures_util::pin_mut;
-use order::Order;
+use std::sync::Arc;
+
+use tokio::sync::Mutex;
 
 #[tokio::main]
 async fn main() {
     let client = std::sync::Arc::new(UniswapClient::new(1));
+    let cache = Arc::new(Mutex::new(OrderCache::new()));
 
-    let mut stream = OrderSubscriber::subscribe(client, 5);
+    let mut stream = OrderSubscriber::subscribe(client, cache, 5);
 
     while let Some(order) = stream.next().await {
         match order {

@@ -11,16 +11,3 @@ pub enum OrderType {
     Limit,
     ExclusiveDutch,
 }
-
-pub async fn with_shutdown<Fut, T>(future: Fut) -> Option<T>
-where
-    Fut: std::future::Future<Output = T>,
-{
-    tokio::select! {
-        res = future => Some(res),
-        _ = tokio::signal::ctrl_c() => {
-            println!("ctrl-c received, exiting");
-            None
-        }
-    }
-}
