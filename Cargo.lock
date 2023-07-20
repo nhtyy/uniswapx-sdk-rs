@@ -2814,13 +2814,8 @@ version = "0.1.0"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-types",
- "async-stream",
- "async-trait",
  "futures",
- "futures-util",
- "reqwest",
  "serde",
- "serde_json",
  "tokio",
 ]
 

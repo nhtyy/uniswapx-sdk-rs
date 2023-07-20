@@ -21,4 +21,8 @@ default_members=[
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace.dependencies]
-
+tokio = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+alloy-sol-types = { workspace = true } 
+alloy-primitives = { workspace = true }
