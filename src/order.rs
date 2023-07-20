@@ -14,51 +14,6 @@ pub struct Order {
     pub sig: String,
 }
 
-impl Order {
-    pub fn new(inner: OrderInner, sig: String) -> Self {
-        Self { inner, sig }
-    }
-
-    pub fn info(&self) -> &OrderInfo {
-        self.inner.info()
-    }
-
-    pub fn validate(&self) -> bool {
-        todo!()
-    }
-}
-
-pub struct OrderHandlerInner<S, Func>
-where
-    S: Stream<Item = Order>,
-    Func: FnMut(Order) -> (),
-{
-    stream: S,
-    handler: Func,
-}
-
-pub struct OrderHandler {
-    // proabbly change this to a kill
-    handle: JoinHandle<()>,
-}
-
-impl OrderHandler {
-    fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
-    where
-        S: Stream<Item = Order> + Send + 'static,
-        Func: FnMut(Order) -> () + Send + 'static,
-    {
-        let handle = tokio::spawn(async move {
-            loop {
-                let order = stream.next().await.expect("this stream should never end");
-                handler(order)
-            }
-        });
-
-        Self { handle }
-    }
-}
-
 pub enum OrderInner {
     Dutch(DutchOrder),
     Limit(LimitOrder),
@@ -80,6 +35,42 @@ impl OrderInner {
             OrderInner::Limit(o) => LimitOrder::encode(o),
             OrderInner::ExclusiveDutch(o) => ExclusiveDutchOrder::encode(o),
         }
+    }
+}
+
+impl Order {
+    pub fn new(inner: OrderInner, sig: String) -> Self {
+        Self { inner, sig }
+    }
+
+    pub fn info(&self) -> &OrderInfo {
+        self.inner.info()
+    }
+
+    pub fn validate(&self) -> bool {
+        todo!()
+    }
+}
+
+pub struct OrderHandler {
+    // proabbly change this to a kill
+    handle: JoinHandle<()>,
+}
+
+impl OrderHandler {
+    fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
+    where
+        S: Stream<Item = Order> + Send + 'static,
+        Func: FnMut(Order) -> () + Send + 'static,
+    {
+        let handle = tokio::spawn(async move {
+            loop {
+                let order = stream.next().await.expect("this stream should never end");
+                handler(order)
+            }
+        });
+
+        Self { handle }
     }
 }
 

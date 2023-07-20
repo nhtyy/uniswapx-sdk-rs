@@ -1,14 +1,7 @@
+pub mod client;
+pub mod subscriber;
 pub mod uniswap;
-use crate::order::Order;
-use futures::Stream;
 use serde::Deserialize;
-use std::{
-    collections::VecDeque,
-    error::Error,
-    future::Future,
-    pin::Pin,
-    sync::{Arc, Mutex},
-};
 
 /// https://github.com/Uniswap/uniswapx-sdk/blob/main/src/constants.ts
 /// only used for deriving our types from external api calls
@@ -17,52 +10,4 @@ pub enum OrderType {
     Dutch,
     Limit,
     ExclusiveDutch,
-}
-
-pub struct OrderSubscriber<C: OrderClient> {
-    buf: Arc<Mutex<VecDeque<Order>>>,
-    idx: usize,
-
-    client: C,
-}
-
-/// a never ending subscription to open orders
-impl<C: OrderClient> OrderSubscriber<C> {
-    pub fn new(client: C) -> Self {
-        Self {
-            buf: Arc::new(Mutex::new(VecDeque::new())),
-            idx: 0,
-            client,
-        }
-    }
-
-    /// will await until an order is found from the client
-    ///
-    pub async fn async_next(&mut self) -> Order {
-        todo!()
-    }
-
-    pub fn subscribe(mut self) -> impl Stream<Item = Order> {
-        async_stream::stream! {
-            tokio::select! {
-                order = self.async_next() => {
-                    yield order;
-                },
-                _ = tokio::signal::ctrl_c() => {
-                    println!("shutting down");
-                    return;
-                }
-            }
-        }
-    }
-}
-
-pub trait OrderClient {
-    type ClientError: Error;
-
-    /// should return as many open orders as possible
-    /// should be up to the consumer to decide what to do with them
-    fn get_open_orders(
-        self,
-    ) -> Pin<Box<dyn Future<Output = Result<Vec<Order>, Self::ClientError>>>>;
 }

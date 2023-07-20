@@ -1,7 +1,6 @@
-use std::pin::Pin;
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
-use super::OrderClient;
+use super::client::OrderClient;
 use super::OrderType;
 use crate::{
     contracts::internal::{
@@ -63,24 +62,20 @@ impl UniswapClient {
     }
 }
 
+#[async_trait::async_trait]
 impl OrderClient for UniswapClient {
     type ClientError = ClientError;
 
-    /// hardcode 10 orders per batch
-    fn get_open_orders(
-        self,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<Order>, Self::ClientError>>>> {
-        Box::pin(async move {
-            let res = self
-                .get_orders_with_params(ApiParams {
-                    limit: 10,
-                    chain_id: self.chain_id,
-                    order_status: OrderStatus::Open,
-                })
-                .await?;
+    async fn get_open_orders(&self) -> Result<Vec<Order>, Self::ClientError> {
+        let res = self
+            .get_orders_with_params(ApiParams {
+                limit: 10,
+                chain_id: self.chain_id,
+                order_status: OrderStatus::Open,
+            })
+            .await?;
 
-            Ok(Vec::try_from(res)?)
-        })
+        Ok(Vec::try_from(res)?)
     }
 }
 
