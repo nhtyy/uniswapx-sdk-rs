@@ -1,8 +1,6 @@
 use crate::{
     contracts::internal::{
-        common::{OrderInfo, SignedOrder},
-        dutch::DutchOrder,
-        exclusive_dutch::ExclusiveDutchOrder,
+        common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder,
         limit::LimitOrder,
     },
     utils::spawn_with_shutdown,
@@ -98,60 +96,6 @@ impl Order {
         /// needs bindings
         todo!()
     }
-}
-
-pub struct OrderHandler {
-    pub handle: JoinHandle<Option<()>>,
-}
-
-impl OrderHandler {
-    /// spawn a handler for a stream of orders
-    ///
-    /// this stream is expected not to end
-    pub fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
-    where
-        S: Stream<Item = Order> + Send + 'static,
-        Func: FnMut(Order) -> () + Send + 'static,
-    {
-        let handle = spawn_with_shutdown(async move {
-            loop {
-                let order = stream.next().await.expect("this stream should never end");
-                handler(order);
-            }
-        });
-
-        Self { handle }
-    }
-}
-
-/// derefs to a hashmap of orders
-///
-pub struct OrderCache {
-    cache: HashMap<B256, Order>,
-}
-
-impl std::ops::Deref for OrderCache {
-    type Target = HashMap<B256, Order>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cache
-    }
-}
-
-impl std::ops::DerefMut for OrderCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.cache
-    }
-}
-
-impl OrderCache {
-    pub fn new() -> Self {
-        Self {
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn flush_closed_orders(&mut self, timestamp: u64) {}
 }
 
 impl From<DutchOrder> for OrderInner {

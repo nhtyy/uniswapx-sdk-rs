@@ -1,7 +1,7 @@
 use super::client::OrderClient;
 use crate::{
-    order::{Order, OrderCache},
-    utils::{run_with_shutdown, spawn_with_shutdown},
+    order::Order,
+    utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
 };
 use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};

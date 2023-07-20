@@ -8,7 +8,7 @@ use crate::{
     },
     order::{Order, OrderInner},
 };
-use alloy_sol_types::{Error as AlloySolTypeError, SolType};
+use alloy_sol_types::Error as AlloySolTypeError;
 use reqwest::{Client, Url};
 
 const URL: &str = "https://api.uniswap.org/v2/orders";
