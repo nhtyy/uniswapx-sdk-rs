@@ -5,7 +5,7 @@ use std::{collections::VecDeque, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 
-pub struct OrderSubscriber {}
+pub struct OrderSubscriber;
 
 /// a never ending subscription to open orders
 impl OrderSubscriber {
@@ -59,6 +59,8 @@ async fn order_client_listener<C: OrderClient>(
     waker: Arc<Notify>,
     sleep: u64,
 ) {
+    let mut last_hash: Option<String> = None;
+
     loop {
         let mut buf = buf.lock().await;
 
@@ -67,15 +69,17 @@ async fn order_client_listener<C: OrderClient>(
                 println!("buf: {}, orders: {}", buf.len(), orders.len());
 
                 let len_before = buf.len();
-                for order in orders {
-                    // if !buf.contains(&order) { // todo! partial eq
-                    //     buf.push_back(order);
-                    // }
 
-                    buf.push_back(order);
+                match last_hash {
+                    Some(ref mut hash) => {} // todo! here we should filter out orders we already have
+                    None => buf.extend(orders), // todo! here we should set the last hash
                 }
 
-                if len_before == 0 && buf.len() > 0 {
+                let len_after = buf.len();
+
+                drop(buf);
+
+                if len_before == 0 && len_after > 0 {
                     waker.notify_one();
                 }
             }
@@ -83,8 +87,6 @@ async fn order_client_listener<C: OrderClient>(
                 println!("error: {:?}", e);
             }
         }
-
-        drop(buf);
 
         tokio::time::sleep(std::time::Duration::from_secs(sleep)).await;
     }
