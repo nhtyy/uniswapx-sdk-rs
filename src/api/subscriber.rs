@@ -86,8 +86,8 @@ impl OrderSubscriber {
                     let len_before = buf.len();
 
                     for order in orders {
-                        if !cache.contains_key(&order.struct_hash()) {
-                            cache.insert(order.struct_hash(), order.clone());
+                        if !cache.contains_key(&order.struct_hash().to_string()) {
+                            cache.insert(order.struct_hash().to_string(), order.clone());
                             buf.push_back(order);
                         }
                     }

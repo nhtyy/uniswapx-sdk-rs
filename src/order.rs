@@ -1,14 +1,7 @@
-use crate::{
-    contracts::internal::{
-        common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder,
-        limit::LimitOrder,
-    },
-    utils::spawn_with_shutdown,
+use crate::contracts::internal::{
+    common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
 };
 use alloy_sol_types::{sol_data::Uint, SolStruct, SolType, B256};
-use futures::{Stream, StreamExt};
-use std::{collections::HashMap, pin::Pin};
-use tokio::task::JoinHandle;
 
 #[derive(Clone)]
 pub struct Order {

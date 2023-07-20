@@ -55,11 +55,11 @@ impl OrderHandler {
 }
 
 pub struct OrderCache {
-    cache: HashMap<B256, Order>,
+    cache: HashMap<String, Order>,
 }
 
 impl std::ops::Deref for OrderCache {
-    type Target = HashMap<B256, Order>;
+    type Target = HashMap<String, Order>;
 
     fn deref(&self) -> &Self::Target {
         &self.cache
