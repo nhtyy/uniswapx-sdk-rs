@@ -9,7 +9,7 @@ use crate::{
 };
 use alloy_sol_types::{sol_data::Uint, SolStruct, SolType, B256};
 use futures::{Stream, StreamExt};
-use std::pin::Pin;
+use std::{collections::HashMap, pin::Pin};
 use tokio::task::JoinHandle;
 
 #[derive(Clone)]
@@ -25,6 +25,7 @@ pub enum OrderInner {
     ExclusiveDutch(ExclusiveDutchOrder),
 }
 
+// todo macro
 impl OrderInner {
     pub fn info(&self) -> &OrderInfo {
         match self {
@@ -108,6 +109,36 @@ impl OrderHandler {
 
         Self { handle }
     }
+}
+
+/// derefs to a hashmap of orders
+///
+pub struct OrderCache {
+    cache: HashMap<B256, Order>,
+}
+
+impl std::ops::Deref for OrderCache {
+    type Target = HashMap<B256, Order>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cache
+    }
+}
+
+impl std::ops::DerefMut for OrderCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.cache
+    }
+}
+
+impl OrderCache {
+    pub fn new() -> Self {
+        Self {
+            cache: HashMap::new(),
+        }
+    }
+
+    pub fn flush_closed_orders(&mut self, timestamp: u64) {}
 }
 
 impl From<DutchOrder> for OrderInner {

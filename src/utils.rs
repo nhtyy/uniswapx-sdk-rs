@@ -5,15 +5,7 @@ where
     Fut: std::future::Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    spawn(async {
-        select! {
-            res = future => Some(res),
-            _ = signal::ctrl_c() => {
-                println!("shutting down");
-                None
-            }
-        }
-    })
+    spawn(run_with_shutdown(future))
 }
 
 pub async fn run_with_shutdown<Fut, T>(future: Fut) -> Option<T>

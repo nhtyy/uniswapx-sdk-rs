@@ -3,11 +3,9 @@ pub mod contracts;
 pub mod order;
 pub mod server;
 pub mod utils;
-use api::{
-    subscriber::{OrderCache, OrderSubscriber},
-    uniswap::UniswapClient,
-};
+use api::{subscriber::OrderSubscriber, uniswap::UniswapClient};
 use futures::stream::StreamExt;
+use order::OrderCache;
 use std::sync::Arc;
 
 use tokio::sync::Mutex;

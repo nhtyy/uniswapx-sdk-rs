@@ -1,6 +1,6 @@
 use super::client::OrderClient;
 use crate::{
-    order::Order,
+    order::{Order, OrderCache},
     utils::{run_with_shutdown, spawn_with_shutdown},
 };
 use alloy_sol_types::B256;
@@ -14,37 +14,10 @@ use std::{
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 
-type OrderStream<C> = Pin<Box<dyn Stream<Item = Result<Order, <C as OrderClient>::ClientError>>>>;
+pub type OrderStream<C> =
+    Pin<Box<dyn Stream<Item = Result<Order, <C as OrderClient>::ClientError>>>>;
 
 pub struct OrderSubscriber;
-
-pub struct OrderCache {
-    cache: HashMap<B256, Order>,
-}
-
-impl Deref for OrderCache {
-    type Target = HashMap<B256, Order>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cache
-    }
-}
-
-impl DerefMut for OrderCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.cache
-    }
-}
-
-impl OrderCache {
-    pub fn new() -> Self {
-        Self {
-            cache: HashMap::new(),
-        }
-    }
-
-    pub fn flush_closed_orders(&mut self, timestamp: u64) {}
-}
 
 /// a never ending subscription to open orders
 impl OrderSubscriber {
