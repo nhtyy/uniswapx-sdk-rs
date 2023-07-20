@@ -12,11 +12,13 @@ use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use tokio::task::JoinHandle;
 
+#[derive(Clone)]
 pub struct Order {
     pub inner: OrderInner,
     pub sig: String,
 }
 
+#[derive(Clone)]
 pub enum OrderInner {
     Dutch(DutchOrder),
     Limit(LimitOrder),

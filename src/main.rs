@@ -18,7 +18,7 @@ async fn main() {
     let client = std::sync::Arc::new(UniswapClient::new(1));
     let cache = Arc::new(Mutex::new(OrderCache::new()));
 
-    let mut stream = OrderSubscriber::subscribe(client, cache, 5);
+    let mut stream = OrderSubscriber::subscribe(cache, client, 5);
 
     while let Some(order) = stream.next().await {
         match order {

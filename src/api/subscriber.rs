@@ -52,8 +52,8 @@ impl OrderCache {
 impl OrderSubscriber {
     /// warning: assumes respsones will always be in the same order!
     pub fn subscribe<C: OrderClient + 'static>(
-        client: Arc<C>,
         cache: Arc<Mutex<OrderCache>>,
+        client: Arc<C>,
         sleep: u64,
     ) -> OrderStream<C> {
         let buf = Arc::new(Mutex::new(VecDeque::new()));
@@ -63,6 +63,7 @@ impl OrderSubscriber {
         // warning: assumes respsones will always be in the same order!
         spawn_with_shutdown(order_client_listener(
             buf.clone(),
+            cache.clone(),
             client.clone(),
             waker.clone(),
             sleep,
@@ -102,14 +103,14 @@ impl OrderSubscriber {
 // todo broken! need cache
 async fn order_client_listener<C: OrderClient>(
     buf: Arc<Mutex<VecDeque<Order>>>,
+    cache: Arc<Mutex<OrderCache>>,
     client: Arc<C>,
     waker: Arc<Notify>,
     sleep: u64,
 ) {
-    let mut last_hash: Option<B256> = None;
-
     loop {
         let mut buf = buf.lock().await;
+        let mut cache = cache.lock().await;
 
         match client.get_open_orders().await {
             Ok(orders) => {
@@ -118,41 +119,23 @@ async fn order_client_listener<C: OrderClient>(
                     continue;
                 }
 
-                println!("buf: {}, orders: {}", buf.len(), orders.len());
-
                 let len_before = buf.len();
 
-                match last_hash {
-                    Some(ref mut hash) => {
-                        let maybe_pos = orders.iter().position(|o| o.inner.struct_hash() == *hash);
-
-                        *hash = orders
-                            .as_slice()
-                            .last()
-                            .map(|o| o.inner.struct_hash())
-                            .expect("should have a last hash");
-
-                        match maybe_pos {
-                            Some(pos) => buf.extend(orders.into_iter().skip(pos + 1)),
-                            None => buf.extend(orders),
-                        }
+                for order in orders {
+                    if !cache.contains_key(&order.struct_hash()) {
+                        cache.insert(order.struct_hash(), order.clone());
+                        buf.push_back(order);
                     }
-                    None => {
-                        last_hash = Some(
-                            orders
-                                .as_slice()
-                                .last()
-                                .map(|o| o.inner.struct_hash())
-                                .expect("should have a last hash"),
-                        );
-
-                        buf.extend(orders);
-                    } // todo! here we should set the last hash
                 }
 
+                cache.flush_closed_orders();
+
+                let len_after = buf.len();
+
+                drop(cache);
                 drop(buf);
 
-                if len_before == 0 {
+                if len_before == 0 && len_after > 0 {
                     waker.notify_one();
                 }
             }
