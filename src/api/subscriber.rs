@@ -43,9 +43,7 @@ impl OrderCache {
         }
     }
 
-    pub fn flush_closed_orders(&mut self) {
-        todo!()
-    }
+    pub fn flush_closed_orders(&mut self, timestamp: u64) {}
 }
 
 /// a never ending subscription to open orders
@@ -114,6 +112,8 @@ async fn order_client_listener<C: OrderClient>(
 
         match client.get_open_orders().await {
             Ok(orders) => {
+                println!("got orders: {:?}, buf size: {:?}", orders.len(), buf.len());
+
                 if orders.len() == 0 {
                     println!("no orders received from client");
                     continue;
@@ -128,7 +128,7 @@ async fn order_client_listener<C: OrderClient>(
                     }
                 }
 
-                cache.flush_closed_orders();
+                cache.flush_closed_orders(0); // todo!
 
                 let len_after = buf.len();
 
