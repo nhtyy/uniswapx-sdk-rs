@@ -48,7 +48,6 @@ impl OrderCache {
 
 /// a never ending subscription to open orders
 impl OrderSubscriber {
-    /// warning: assumes respsones will always be in the same order!
     pub fn subscribe<C: OrderClient + 'static>(
         cache: Arc<Mutex<OrderCache>>,
         client: Arc<C>,
@@ -97,9 +96,7 @@ impl OrderSubscriber {
     }
 }
 
-// warning: assumes respsones will always be in the same order!
 // hits the api and condintally pushes them into a buffer
-// todo broken! need cache
 async fn fill_buf<C: OrderClient>(
     buf: Arc<Mutex<VecDeque<Order>>>,
     cache: Arc<Mutex<OrderCache>>,
