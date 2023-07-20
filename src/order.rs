@@ -4,7 +4,7 @@ use crate::contracts::internal::{
     exclusive_dutch::ExclusiveDutchOrder,
     limit::LimitOrder,
 };
-use alloy_sol_types::SolType;
+use alloy_sol_types::{SolStruct, SolType, B256};
 use futures::{Stream, StreamExt};
 use std::pin::Pin;
 use tokio::task::JoinHandle;
@@ -34,6 +34,14 @@ impl OrderInner {
             OrderInner::Dutch(o) => DutchOrder::encode(o),
             OrderInner::Limit(o) => LimitOrder::encode(o),
             OrderInner::ExclusiveDutch(o) => ExclusiveDutchOrder::encode(o),
+        }
+    }
+
+    pub fn struct_hash(&self) -> B256 {
+        match self {
+            OrderInner::Dutch(o) => o.eip712_hash_struct(),
+            OrderInner::Limit(o) => o.eip712_hash_struct(),
+            OrderInner::ExclusiveDutch(o) => o.eip712_hash_struct(),
         }
     }
 }

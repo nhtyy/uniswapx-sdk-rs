@@ -1,5 +1,7 @@
 use super::client::OrderClient;
 use crate::order::Order;
+use alloy_sol_types::SolType;
+use alloy_sol_types::B256;
 use futures::Stream;
 use std::{collections::VecDeque, sync::Arc};
 use tokio::sync::Mutex;
@@ -59,27 +61,53 @@ async fn order_client_listener<C: OrderClient>(
     waker: Arc<Notify>,
     sleep: u64,
 ) {
-    let mut last_hash: Option<String> = None;
+    let mut last_hash: Option<B256> = None;
 
     loop {
         let mut buf = buf.lock().await;
 
         match client.get_open_orders().await {
             Ok(orders) => {
+                if orders.len() == 0 {
+                    println!("no orders received from client");
+                    continue;
+                }
+
                 println!("buf: {}, orders: {}", buf.len(), orders.len());
 
                 let len_before = buf.len();
 
                 match last_hash {
-                    Some(ref mut hash) => {} // todo! here we should filter out orders we already have
-                    None => buf.extend(orders), // todo! here we should set the last hash
-                }
+                    Some(ref mut hash) => {
+                        let maybe_pos = orders.iter().position(|o| o.inner.struct_hash() == *hash);
 
-                let len_after = buf.len();
+                        *hash = orders
+                            .as_slice()
+                            .last()
+                            .map(|o| o.inner.struct_hash())
+                            .expect("should have a last hash");
+
+                        match maybe_pos {
+                            Some(pos) => buf.extend(orders.into_iter().skip(pos + 1)),
+                            None => buf.extend(orders),
+                        }
+                    }
+                    None => {
+                        last_hash = Some(
+                            orders
+                                .as_slice()
+                                .last()
+                                .map(|o| o.inner.struct_hash())
+                                .expect("should have a last hash"),
+                        );
+
+                        buf.extend(orders);
+                    } // todo! here we should set the last hash
+                }
 
                 drop(buf);
 
-                if len_before == 0 && len_after > 0 {
+                if len_before == 0 {
                     waker.notify_one();
                 }
             }

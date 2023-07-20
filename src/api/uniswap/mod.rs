@@ -83,7 +83,7 @@ impl TryFrom<OrderResponseInner> for DutchOrder {
     type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        DutchOrder::hex_decode(clean_encoding(&order.encoded_order), true)
+        DutchOrder::hex_decode_single(&order.encoded_order, true)
     }
 }
 
@@ -91,7 +91,7 @@ impl TryFrom<OrderResponseInner> for LimitOrder {
     type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        LimitOrder::hex_decode(clean_encoding(&order.encoded_order), true)
+        LimitOrder::hex_decode_single(&order.encoded_order, true)
     }
 }
 
@@ -99,7 +99,7 @@ impl TryFrom<OrderResponseInner> for ExclusiveDutchOrder {
     type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
-        ExclusiveDutchOrder::hex_decode(clean_encoding(&order.encoded_order), true)
+        ExclusiveDutchOrder::hex_decode_single(&order.encoded_order, true)
     }
 }
 
@@ -157,8 +157,4 @@ impl From<AlloySolTypeError> for ClientError {
     fn from(e: AlloySolTypeError) -> Self {
         Self::Encoding(e)
     }
-}
-
-fn clean_encoding(s: &str) -> &str {
-    &s[66..]
 }
