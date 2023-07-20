@@ -66,7 +66,7 @@ pub struct OrderHandler {
 }
 
 impl OrderHandler {
-    fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
+    pub fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
     where
         S: Stream<Item = Order> + Send + 'static,
         Func: FnMut(Order) -> () + Send + 'static,
