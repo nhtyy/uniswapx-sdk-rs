@@ -9,6 +9,7 @@ where
         select! {
             res = future => Some(res),
             _ = signal::ctrl_c() => {
+                println!("shutting down");
                 None
             }
         }
@@ -23,6 +24,7 @@ where
     select! {
         ret = future => Some(ret),
         _ = signal::ctrl_c() => {
+            println!("shutting down");
             None
         }
     }

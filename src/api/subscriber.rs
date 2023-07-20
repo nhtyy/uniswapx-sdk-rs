@@ -59,7 +59,7 @@ impl OrderSubscriber {
 
         // spawn a task that dumps unseen orders into the buffer
         // warning: assumes respsones will always be in the same order!
-        spawn_with_shutdown(order_client_listener(
+        spawn_with_shutdown(fill_buf(
             buf.clone(),
             cache.clone(),
             client.clone(),
@@ -69,8 +69,9 @@ impl OrderSubscriber {
 
         // buf and waker get moved into here and i think basically get spawned as a task?
         Box::pin(async_stream::stream! {
+            // wait for the first buf fill
             waker.notified().await;
-            while let Some(order) = run_with_shutdown(Self::await_next(buf.clone(), waker.clone())).await {
+            while let Some(order) = run_with_shutdown(Self::read_buf(buf.clone(), waker.clone())).await {
                 yield Ok(order);
             }
         })
@@ -79,7 +80,7 @@ impl OrderSubscriber {
     /// awaits a notification from task filling buf iff no orders are in buf
     ///
     // inline async blocks dont seem to work in a stream! macro so we need this function
-    async fn await_next(buf: Arc<Mutex<VecDeque<Order>>>, waker: Arc<Notify>) -> Order {
+    async fn read_buf(buf: Arc<Mutex<VecDeque<Order>>>, waker: Arc<Notify>) -> Order {
         loop {
             let mut buf = buf.lock().await;
 
@@ -99,7 +100,7 @@ impl OrderSubscriber {
 // warning: assumes respsones will always be in the same order!
 // hits the api and condintally pushes them into a buffer
 // todo broken! need cache
-async fn order_client_listener<C: OrderClient>(
+async fn fill_buf<C: OrderClient>(
     buf: Arc<Mutex<VecDeque<Order>>>,
     cache: Arc<Mutex<OrderCache>>,
     client: Arc<C>,
