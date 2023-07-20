@@ -14,7 +14,7 @@ use std::{
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 
-type OrderStream<C: OrderClient> = Pin<Box<dyn Stream<Item = Result<Order, C::ClientError>>>>;
+type OrderStream<C> = Pin<Box<dyn Stream<Item = Result<Order, <C as OrderClient>::ClientError>>>>;
 
 pub struct OrderSubscriber;
 
