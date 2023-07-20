@@ -3,7 +3,6 @@ pub mod contracts;
 pub mod order;
 pub mod server;
 pub mod utils;
-
 use api::{
     subscriber::{OrderCache, OrderSubscriber},
     uniswap::UniswapClient,

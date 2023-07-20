@@ -15,3 +15,4 @@ alloy-sol-types = { version = "0.2.0"}
 async-stream = "0.3.0"
 async-trait = "0.1.51"
 futures-util = "0.3.19"
+alloy-primitives = { version = "0.2.0"}

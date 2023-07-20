@@ -1344,6 +1344,7 @@ dependencies = [
 name = "uniswapx"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "alloy-sol-types",
  "async-stream",
  "async-trait",
