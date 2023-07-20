@@ -1,5 +1,4 @@
 use crate::order::Order;
-use alloy_sol_types::B256;
 use futures::{Stream, StreamExt};
 use std::{collections::HashMap, pin::Pin};
 use tokio::{select, signal, spawn, task::JoinHandle};
