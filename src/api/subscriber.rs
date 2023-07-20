@@ -1,6 +1,5 @@
 use super::client::OrderClient;
 use crate::order::Order;
-use alloy_sol_types::SolType;
 use alloy_sol_types::B256;
 use futures::Stream;
 use std::{collections::VecDeque, sync::Arc};
@@ -14,7 +13,7 @@ impl OrderSubscriber {
     pub fn subscribe<C: OrderClient + 'static>(
         client: Arc<C>,
         sleep: u64,
-    ) -> impl Stream<Item = Result<Order, C::ClientError>> {
+    ) -> std::pin::Pin<Box<impl Stream<Item = Result<Order, C::ClientError>>>> {
         let buf: Arc<Mutex<VecDeque<Order>>> = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
 
@@ -25,33 +24,21 @@ impl OrderSubscriber {
             sleep,
         ));
 
-        async_stream::stream! {
+        Box::pin(async_stream::stream! {
             waker.notified().await;
             loop {
-                tokio::select! {
-                    order = async {
-                        loop {
-                            let mut buf = buf.lock().await;
-                            match buf.pop_front() {
-                                Some(order) => {
-                                    return Ok(order);
-                                }
-                                None => {
-                                    drop(buf);
-                                    waker.notified().await;
-                                }
-                            }
-                        }
-                    } => {
-                        yield order;
-                    },
-                    _ = tokio::signal::ctrl_c() => {
-                        println!("shutting down");
-                        return;
+                let mut buf = buf.lock().await;
+                match buf.pop_front() {
+                    Some(order) => {
+                        yield Ok(order);
+                    }
+                    None => {
+                        drop(buf);
+                        waker.notified().await;
                     }
                 }
             }
-        }
+        })
     }
 }
 

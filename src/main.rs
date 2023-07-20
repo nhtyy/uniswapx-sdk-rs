@@ -14,8 +14,6 @@ async fn main() {
 
     let mut stream = OrderSubscriber::subscribe(client, 5);
 
-    pin_mut!(stream);
-
     while let Some(order) = stream.next().await {
         match order {
             Ok(order) => {
