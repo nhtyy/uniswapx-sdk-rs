@@ -8,21 +8,23 @@ members=[
 	"ethers-bindings",
 	"server",
 	"api",
-	"core"
+	"core",
+	"working-bin"
 ]
 
 default_members=[
 	"ethers-bindings",
 	"server",
 	"api",
-	"core"
+	"core",
+	"working-bin"
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace.dependencies]
-tokio = { workspace = true }
-futures = { workspace = true }
-serde = { workspace = true }
-alloy-sol-types = { workspace = true } 
-alloy-primitives = { workspace = true }
+tokio = { version = "1.12.0", features = ["full"] }
+futures = { version = "0.3.19", features = ["alloc"] }
+serde = { version = "1.0.130", features = ["derive"] }
+alloy-sol-types = { version = "0.2.0" } 
+alloy-primitives = { version = "0.2.0" }

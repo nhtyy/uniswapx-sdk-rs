@@ -8,6 +8,12 @@ use uniswapx_sdk_core::{
     utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
 };
 
+// todo make this a trait
+// can have 'subscribe' and 'is_expired' as abstract methods
+// it should have a `Self::Target`
+
+// make we can make the buffer fun
+
 pub type OrderStream<C> =
     Pin<Box<dyn Stream<Item = Result<Order, <C as OrderClient>::ClientError>>>>;
 
@@ -33,7 +39,6 @@ impl OrderSubscriber {
             sleep,
         ));
 
-        // buf and waker get moved into here and i think basically get spawned as a task?
         Box::pin(async_stream::stream! {
             // wait for the first buf fill
             waker.notified().await;

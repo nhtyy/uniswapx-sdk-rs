@@ -16,5 +16,4 @@ tokio = { workspace = true }
 futures = { workspace = true }
 serde = { workspace = true }
 alloy-sol-types = { workspace = true }
-alloy-primitives = { workspace = true }
 uniswapx-sdk-core = { path = "../core" }
