@@ -14,8 +14,7 @@ use uniswapx_sdk_core::{
 
 // make we can make the buffer fun
 
-pub type OrderStream<C> =
-    Pin<Box<dyn Stream<Item = Result<Order, <C as OrderClient>::ClientError>>>>;
+pub type Subscription<T> = Pin<Box<dyn Stream<Item = T>>>;
 
 pub struct OrderSubscriber;
 
@@ -25,7 +24,7 @@ impl OrderSubscriber {
         cache: Arc<Mutex<OrderCache>>,
         client: Arc<C>,
         sleep: u64,
-    ) -> OrderStream<C> {
+    ) -> Subscription<Order> {
         let buf = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
 
@@ -43,7 +42,7 @@ impl OrderSubscriber {
             // wait for the first buf fill
             waker.notified().await;
             while let Some(order) = run_with_shutdown(Self::read_buf(buf.clone(), waker.clone())).await {
-                yield Ok(order);
+                yield order;
             }
         })
     }
@@ -79,38 +78,40 @@ impl OrderSubscriber {
             let mut buf = buf.lock().await;
             let mut cache = cache.lock().await;
 
-            match client.get_open_orders().await {
-                Ok(orders) => {
-                    println!("got orders: {:?}, buf size: {:?}", orders.len(), buf.len());
+            let orders = client.firehose().await;
 
-                    if orders.len() == 0 {
-                        println!("no orders received from client");
-                        continue;
-                    }
+            if orders.is_err() {
+                println!("error getting orders from client");
+                continue;
+            }
 
-                    let len_before = buf.len();
+            let orders = orders.unwrap();
 
-                    for order in orders {
-                        if !cache.contains_key(&order.struct_hash().to_string()) {
-                            cache.insert(order.struct_hash().to_string(), order.clone());
-                            buf.push_back(order);
-                        }
-                    }
+            println!("got orders: {:?}, buf size: {:?}", orders.len(), buf.len());
 
-                    cache.flush_closed_orders(0); // todo!
+            if orders.len() == 0 {
+                println!("no orders received from client");
+                continue;
+            }
 
-                    let len_after = buf.len();
+            let len_before = buf.len();
 
-                    drop(cache);
-                    drop(buf);
-
-                    if len_before == 0 && len_after > 0 {
-                        waker.notify_one();
-                    }
+            for order in orders {
+                if !cache.contains_key(&order.struct_hash().to_string()) {
+                    cache.insert(order.struct_hash().to_string(), order.clone());
+                    buf.push_back(order);
                 }
-                Err(e) => {
-                    println!("error: {:?}", e);
-                }
+            }
+
+            cache.flush_closed_orders(0); // todo!
+
+            let len_after = buf.len();
+
+            drop(cache);
+            drop(buf);
+
+            if len_before == 0 && len_after > 0 {
+                waker.notify_one();
             }
 
             tokio::time::sleep(std::time::Duration::from_secs(sleep)).await;

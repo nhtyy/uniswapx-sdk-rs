@@ -3770,6 +3770,7 @@ dependencies = [
 name = "working-bin"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "ethers",
  "futures",
  "tokio",

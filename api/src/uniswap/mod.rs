@@ -66,16 +66,16 @@ impl UniswapClient {
 impl OrderClient for UniswapClient {
     type ClientError = ClientError;
 
-    async fn get_open_orders(&self) -> Result<Vec<Order>, Self::ClientError> {
+    async fn firehose(&self) -> Result<Vec<Order>, Self::ClientError> {
         let res = self
             .get_orders_with_params(ApiParams {
-                limit: 10,
+                limit: 1,
                 chain_id: self.chain_id,
                 order_status: OrderStatus::Open,
             })
             .await?;
 
-        Ok(Vec::try_from(res)?)
+        Ok(Vec::<Order>::try_from(res)?)
     }
 }
 
@@ -102,7 +102,6 @@ impl TryFrom<OrderResponseInner> for Order {
     }
 }
 
-/// compiler magic
 impl TryFrom<OrderResponse> for Vec<Order> {
     type Error = AlloySolTypeError;
 
