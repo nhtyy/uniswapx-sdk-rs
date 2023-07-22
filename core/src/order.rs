@@ -1,8 +1,24 @@
 use crate::contracts::internal::{
-    common::OrderInfo, dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
+    common::{OrderInfo, ResolvedOrder},
+    dutch::DutchOrder,
+    exclusive_dutch::ExclusiveDutchOrder,
+    limit::LimitOrder,
 };
-use alloy_sol_types::{sol_data::Uint, SolStruct, SolType, B256};
+use alloy_primitives::{Address, B256, U256};
+use alloy_sol_types::{SolStruct, SolType};
+
+use ethers::{
+    abi::AbiEncode,
+    contract::ContractError,
+    prelude::ContractCall,
+    providers::Middleware,
+    types::{Address as EthersAddress, ParseBytesError},
+};
 use serde::Deserialize;
+use std::sync::Arc;
+use uniswapx_ethers_bindings::order_quoter::order_quoter::{
+    OrderQuoter, ResolvedOrder as EthersResolvedOrder,
+};
 
 /// https://github.com/Uniswap/uniswapx-sdk/blob/main/src/constants.ts
 /// only used for deriving our types from external api calls
@@ -69,6 +85,25 @@ impl OrderInner {
     }
 }
 
+#[derive(Debug)]
+pub enum ValidationError<M: Middleware> {
+    ContractError(ContractError<M>),
+    SigParseError(ParseBytesError),
+}
+
+#[derive(Debug)]
+pub enum ValidationStatus {
+    Expired,
+    NonceUsed,
+    InsufficientFunds,
+    InvalidSignature,
+    InvalidOrderFields,
+    UnknownError,
+    ValidationFailed,
+    ExclusivityPeriod,
+    OK,
+}
+
 // part of macro also
 impl Order {
     pub fn new(inner: OrderInner, sig: String) -> Self {
@@ -91,14 +126,56 @@ impl Order {
         self.inner.order_type()
     }
 
-    pub fn deadline(&self) -> <Uint<256> as SolType>::RustType {
+    pub fn deadline(&self) -> U256 {
         self.info().deadline
     }
 
-    pub fn validate(&self) -> bool {
-        /// needs bindings
-        todo!()
+    pub fn encode(&self) -> Vec<u8> {
+        self.inner.encode()
     }
+
+    pub async fn validate<M: Middleware + 'static>(
+        &self,
+        middleware: Arc<M>,
+        quoter_address: Address,
+    ) -> Result<bool, ValidationError<M>> {
+        match self.quote(middleware, quoter_address).await {
+            Ok(_) => Ok(true),
+            Err(ValidationError::ContractError(ContractError::Revert(bytes))) => Ok(false),
+            Err(err) => Err(err),
+        }
+    }
+
+    pub async fn quote<M: Middleware + 'static>(
+        &self,
+        middleware: Arc<M>,
+        quoter_address: Address,
+    ) -> Result<ResolvedOrder, ValidationError<M>> {
+        Ok(into_alloy_resolved_order(
+            self.quote_ethers(
+                middleware,
+                quoter_address
+                    .to_string()
+                    .parse::<EthersAddress>()
+                    .expect("alloy type to parse"),
+            )?
+            .await?,
+        ))
+    }
+
+    fn quote_ethers<M: Middleware>(
+        &self,
+        middleware: Arc<M>,
+        quoter_address: EthersAddress,
+    ) -> Result<ContractCall<M, EthersResolvedOrder>, ParseBytesError> {
+        let quoter = OrderQuoter::new(quoter_address, middleware);
+
+        Ok(quoter.quote(self.encode().into(), self.sig.parse()?))
+    }
+}
+
+fn into_alloy_resolved_order(ethers: EthersResolvedOrder) -> ResolvedOrder {
+    ResolvedOrder::decode_single(&ethers.encode(), true).expect("ethers abi encoding to parse")
 }
 
 impl From<DutchOrder> for OrderInner {
@@ -140,5 +217,28 @@ impl TryFrom<String> for ExclusiveDutchOrder {
 
     fn try_from(hex_encoded: String) -> Result<Self, Self::Error> {
         ExclusiveDutchOrder::hex_decode_single(&hex_encoded, true)
+    }
+}
+
+impl<M: Middleware> std::error::Error for ValidationError<M> {}
+
+impl<M: Middleware> std::fmt::Display for ValidationError<M> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ValidationError::ContractError(e) => write!(f, "ContractError: {}", e),
+            ValidationError::SigParseError(e) => write!(f, "SigParseError: {}", e),
+        }
+    }
+}
+
+impl<M: Middleware> From<ContractError<M>> for ValidationError<M> {
+    fn from(e: ContractError<M>) -> Self {
+        ValidationError::ContractError(e)
+    }
+}
+
+impl<M: Middleware> From<ParseBytesError> for ValidationError<M> {
+    fn from(e: ParseBytesError) -> Self {
+        ValidationError::SigParseError(e)
     }
 }

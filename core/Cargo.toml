@@ -11,3 +11,6 @@ futures = { version = "0.3.19", features = ["alloc"] }
 serde = { version = "1.0.130", features = ["derive"] }
 alloy-sol-types = { version = "0.2.0"}
 alloy-primitives = { version = "0.2.0"}
+ethers = { version = "2.0.6" }
+uniswapx-ethers-bindings = { path = "../ethers-bindings" }
+hex = { version = "0.4.3" }
