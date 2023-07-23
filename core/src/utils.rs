@@ -1,12 +1,7 @@
 use crate::order::{Order, ValidationStatus};
 use ethers::providers::Middleware;
-use futures::{Stream, StreamExt};
 use std::{collections::HashMap, pin::Pin, sync::Arc};
-use tokio::{
-    select, signal, spawn,
-    sync::{Mutex, MutexGuard},
-    task::JoinHandle,
-};
+use tokio::{select, signal, spawn, sync::Mutex, task::JoinHandle};
 
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
@@ -58,13 +53,13 @@ impl OrderCache {
         }
     }
 
-    pub async fn flush<M>(
-        map: &mut MutexGuard<'_, HashMap<String, Order>>,
-        provider: std::sync::Arc<M>,
-    ) where
+    pub async fn flush<M>(self: Arc<Self>, provider: std::sync::Arc<M>)
+    where
         M: Middleware + 'static,
     {
-        let (keys, futures): (Vec<_>, Vec<_>) = map
+        let mut lock = self.cache.lock().await;
+
+        let (keys, futures): (Vec<_>, Vec<_>) = lock
             .iter()
             .map(|(k, order)| (k.clone(), order.validate_ethers(provider.clone())))
             .unzip();
@@ -78,7 +73,7 @@ impl OrderCache {
                 }
                 Ok(_) => {
                     debug!("order {} is invalid, removing", key);
-                    map.remove(&key);
+                    lock.remove(&key);
                 }
                 Err(e) => {
                     error!(
