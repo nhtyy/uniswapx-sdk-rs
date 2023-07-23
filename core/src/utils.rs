@@ -6,6 +6,9 @@ use tokio::{select, signal, spawn, sync::Mutex, task::JoinHandle};
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
 
+/// useful for when you want to spawn a task that doesnt return usally
+///
+/// this task will return when a ctrl-c is received
 pub fn spawn_with_shutdown<Fut, T>(future: Fut) -> JoinHandle<Option<T>>
 where
     Fut: std::future::Future<Output = T> + Send + 'static,
@@ -14,6 +17,9 @@ where
     spawn(run_with_shutdown(future))
 }
 
+/// useful for when you want to await a future that blocks the current context
+///
+/// this future will return when a ctrl-c is received
 pub async fn run_with_shutdown<Fut, T>(future: Fut) -> Option<T>
 where
     Fut: std::future::Future<Output = T> + Send + 'static,
@@ -29,7 +35,7 @@ where
 }
 
 /// a task safe cache meant to be shared across subscribers
-/// it is instanitaed with a [tokio::task] to flush its cache periodically
+/// it is instanitaed with a [tokio::task] to flush itself periodically
 pub struct OrderCache {
     cache: Mutex<HashMap<String, Order>>,
 }
