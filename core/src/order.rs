@@ -178,7 +178,8 @@ impl Order {
     }
 
     pub fn quoter_address(&self) -> Address {
-        // todo should be a mapping, but api only supports one order type rn
+        // todo should be a mapping, but api only one address on doc site
+        // see: https://docs.uniswap.org/contracts/uniswapx/overview
         "0x7714520f383C998e8822E8743FD6f90A2979689b"
             .parse()
             .expect("quoter address to parse")

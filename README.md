@@ -23,7 +23,10 @@ use futures::StreamExt;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use uniswapx_sdk_api::{subscriber::OrderSubscriber, uniswap::UniswapClient};
-use uniswapx_sdk_core::{order::Order, utils::OrderCache};
+use uniswapx_sdk_core::{
+    order::Order,
+    utils::{spawn_with_shutdown, OrderCache},
+};
 
 const PROVIDER_URL: &str = "";
 
@@ -37,9 +40,9 @@ async fn main() {
 
     let client = UniswapClient::new(1);
 
-    let cache: Arc<OrderCache> = OrderCache::new();
+    let cache: Arc<OrderCache> = OrderCache::new(provider.clone(), 10);
 
-    let mut sub = OrderSubscriber::subscribe(cache, provider.clone(), client, 5);
+    let mut sub = OrderSubscriber::subscribe(cache.clone(), provider.clone(), client, 5);
 
     while let Some(order) = sub.next().await {
         tokio::spawn(handle_order(order, provider.clone()));
@@ -55,12 +58,11 @@ async fn handle_order<M: Middleware + 'static>(order: Order, provider: Arc<M>) {
             println!("deadline: {:?}", order.deadline());
 
             // do stuff with order
+            //
         }
         Err(e) => {
             println!("error: {:?}", e);
         }
     }
 }
-
-
 ```

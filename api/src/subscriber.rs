@@ -21,10 +21,9 @@ use tracing::{debug, error, info, trace, warn};
 pub struct OrderSubscriber;
 
 impl OrderSubscriber {
-    /// a never ending subscription to open orders
+    /// a never ending subscription to some [Order]s
     ///
     /// this stream can return invalid orders, consumers are expected to validate ([Order].validate_ethers()) them before use as they can expire at anytime
-    /// if the upstream [Client] returns invalid orders this stream will return them
     pub fn subscribe<C, M>(
         cache: Arc<OrderCache>,
         provider: Arc<M>,
@@ -156,7 +155,10 @@ fn debug_validation<M: Middleware + 'static>(orders: Vec<Order>, provider: Arc<M
             .iter()
             .map(|res| match res {
                 Ok(ans) => Some(ans),
-                Err(e) => None,
+                Err(e) => {
+                    error!("error validating order: {:?}", e);
+                    None
+                }
             })
             .collect::<Vec<_>>()
         )
