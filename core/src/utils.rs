@@ -28,8 +28,8 @@ where
     }
 }
 
-/// a task safe cache meeant to be shared across subscribers
-/// it is defined with a `flush_interval` which is also a task, to purge bad orders
+/// a task safe cache meant to be shared across subscribers
+/// it is instanitaed with a [tokio::task] to flush its cache periodically
 pub struct OrderCache {
     cache: Mutex<HashMap<String, Order>>,
 }
@@ -49,7 +49,7 @@ impl std::ops::DerefMut for OrderCache {
 }
 
 impl OrderCache {
-    /// spawns a task that flushes the cache every [] seconds
+    /// spawns a task that flushes the cache every `flush_interval` seconds
     ///
     /// uses the [Middleware] to validate orders
     pub fn new<M: Middleware + 'static>(provider: Arc<M>, flush_interval: u64) -> Arc<Self> {
