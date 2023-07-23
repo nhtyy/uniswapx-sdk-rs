@@ -1,6 +1,6 @@
 A crate for consuming, and coordinating filler services for UniswapX orders.
 
-see `cargo book --open` to see the full docs
+see `cargo doc --open` to see the full docs
 
 The crate will have 3 main parts, api, server and core.
 
