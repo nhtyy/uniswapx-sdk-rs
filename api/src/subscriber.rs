@@ -4,6 +4,7 @@ use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
+use tracing::{debug, error, info, trace, warn};
 use uniswapx_sdk_core::{
     order::Order,
     utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
@@ -91,17 +92,21 @@ impl OrderSubscriber {
 
             let orders = client.firehose().await;
 
+            // will try again so just continue
             if orders.is_err() {
-                println!("error getting orders from client");
+                error!("subscriber: error getting order froms the client");
                 continue;
             }
 
             let orders = orders.unwrap();
 
-            println!("got orders: {:?}, buf size: {:?}", orders.len(), buf.len());
+            debug!(
+                "subsciber got orders: {:?}, buf size: {:?}",
+                orders.len(),
+                buf.len()
+            );
 
             if orders.len() == 0 {
-                println!("no orders received from client");
                 continue;
             }
 

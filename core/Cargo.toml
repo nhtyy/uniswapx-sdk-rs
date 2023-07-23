@@ -14,3 +14,4 @@ alloy-primitives = { version = "0.2.0"}
 ethers = { version = "2" }
 uniswapx-ethers-bindings = { path = "../ethers-bindings" }
 hex = { version = "0.4.3" }
+tracing = { workspace = true }

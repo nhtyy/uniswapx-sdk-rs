@@ -3,6 +3,7 @@ pub mod response_types;
 use super::client::Client;
 use alloy_sol_types::Error as AlloySolTypeError;
 use reqwest::{Client as ReqwestClient, Url};
+use tracing::{debug, error, info, trace, warn};
 use uniswapx_sdk_core::order::OrderType;
 use uniswapx_sdk_core::{
     contracts::internal::{
@@ -89,6 +90,7 @@ impl TryFrom<OrderResponseInner> for Order {
         Ok(Self::new(
             match order.order_type {
                 OrderType::Dutch => {
+                    info!("uniswap api matched a dutch order, but it should actually be an exclusive dutch order");
                     OrderInner::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
                     // see todo
                 }

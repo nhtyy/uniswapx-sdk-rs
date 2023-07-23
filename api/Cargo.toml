@@ -19,3 +19,4 @@ futures = { workspace = true }
 serde = { workspace = true }
 alloy-sol-types = { workspace = true }
 uniswapx-sdk-core = { path = "../core" }
+tracing = { workspace = true }

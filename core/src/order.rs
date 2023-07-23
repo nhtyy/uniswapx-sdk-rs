@@ -170,7 +170,7 @@ impl Order {
                 quoter_address
                     .to_string()
                     .parse::<EthersAddress>()
-                    .expect("alloy type to parse"),
+                    .expect("alloy type to parse by ethers"),
             )?
             .await?,
         ))
@@ -188,7 +188,8 @@ impl Order {
 }
 
 fn into_alloy_resolved_order(ethers: EthersResolvedOrder) -> ResolvedOrder {
-    ResolvedOrder::decode_single(&ethers.encode(), true).expect("ethers abi encoding to parse")
+    ResolvedOrder::decode_single(&ethers.encode(), true)
+        .expect("for ethers abi encoding to parse into an alloys resolved order")
 }
 
 impl From<DutchOrder> for OrderInner {
