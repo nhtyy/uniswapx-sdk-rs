@@ -3,7 +3,6 @@ pub mod response_types;
 use super::client::Client;
 use alloy_sol_types::Error as AlloySolTypeError;
 use reqwest::{Client as ReqwestClient, Url};
-use tracing::{debug, error, info, trace, warn};
 use uniswapx_sdk_core::order::OrderType;
 use uniswapx_sdk_core::{
     contracts::internal::{
@@ -11,6 +10,9 @@ use uniswapx_sdk_core::{
     },
     order::{Order, OrderInner},
 };
+
+#[allow(unused_imports)]
+use tracing::{debug, error, info, trace, warn};
 
 const URL: &str = "https://api.uniswap.org/v2/orders";
 

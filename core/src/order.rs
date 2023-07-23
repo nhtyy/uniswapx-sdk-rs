@@ -16,6 +16,7 @@ use ethers::{
 };
 use serde::Deserialize;
 use std::sync::Arc;
+use tracing::debug;
 use uniswapx_ethers_bindings::order_quoter::order_quoter::{
     OrderQuoter, ResolvedOrder as EthersResolvedOrder,
 };
@@ -98,13 +99,49 @@ pub enum ValidationStatus {
     InsufficientFunds,
     InvalidSignature,
     InvalidOrderFields,
-    UnknownError,
+    UnknownError(String),
     ValidationFailed,
     ExclusivityPeriod,
     OK,
 }
 
-// part of macro also
+/// see https://github.com/Uniswap/uniswapx-sdk/blob/01b4516bde998503ee01555644e3711cb36892c9/src/utils/OrderQuoter.ts#L45
+impl From<String> for ValidationStatus {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "0x302e5b7c" | "0x773a6187" => {
+                debug!("invalid dutch decay time");
+                ValidationStatus::InvalidOrderFields
+            }
+            "0x4ddf4a64" => {
+                debug!("invlaid reactor");
+                ValidationStatus::InvalidOrderFields
+            }
+            "0xd303758b" => {
+                debug!("both dutch input and output decay bad");
+                ValidationStatus::InvalidOrderFields
+            }
+            "0x7c1f8113" => {
+                debug!("incorrect amounts");
+                ValidationStatus::InvalidOrderFields
+            }
+            "0x43133453" => {
+                debug!("invalid dutch decay time");
+                ValidationStatus::InvalidOrderFields
+            }
+            "0xb9ec1e96" | "0x062dec56" | "0x75c1bb14" => ValidationStatus::ExclusivityPeriod,
+            "0x8baa579f" | "0x815e1d64" => ValidationStatus::InvalidSignature,
+            "0x48fee69c" => ValidationStatus::InvalidOrderFields,
+            "0x70f65caa" => ValidationStatus::Expired,
+            "0xee3b3d4b" => ValidationStatus::NonceUsed,
+            "0x0a0b0d79" => ValidationStatus::ValidationFailed,
+            "0x756688fe" => ValidationStatus::NonceUsed,
+            // transfer from? => ValidationStatus::InsufficientFunds,
+            _ => ValidationStatus::UnknownError(s),
+        }
+    }
+}
+
 impl Order {
     pub fn new(inner: OrderInner, sig: String) -> Self {
         Self { inner, sig }
@@ -148,12 +185,11 @@ impl Order {
     pub async fn validate_ethers<M: Middleware + 'static>(
         &self,
         middleware: Arc<M>,
-    ) -> Result<bool, ValidationError<M>> {
+    ) -> Result<ValidationStatus, ValidationError<M>> {
         match self.quote_ethers(middleware, self.quoter_address()).await {
-            Ok(_) => Ok(true),
+            Ok(_) => Ok(ValidationStatus::OK),
             Err(ValidationError::ContractError(ContractError::Revert(bytes))) => {
-                println!("revert bytes: {:?}", bytes);
-                Ok(false)
+                Ok(ValidationStatus::from(bytes.to_string()))
             }
             Err(err) => Err(err),
         }

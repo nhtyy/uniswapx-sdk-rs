@@ -4,11 +4,14 @@ use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
-use tracing::{debug, error, info, trace, warn};
+use uniswapx_sdk_core::order::ValidationStatus;
 use uniswapx_sdk_core::{
     order::Order,
     utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
 };
+
+#[allow(unused_imports)]
+use tracing::{debug, error, info, trace, warn};
 
 // todo make this a trait
 // can have 'subscribe' and 'is_expired' as abstract methods
@@ -16,18 +19,19 @@ use uniswapx_sdk_core::{
 
 // make we can make the buffer fun
 
-pub type Subscription<T> = Pin<Box<dyn Stream<Item = T>>>;
-
 pub struct OrderSubscriber;
 
-/// a never ending subscription to open orders
 impl OrderSubscriber {
+    /// a never ending subscription to open orders
+    ///
+    /// this stream can return invalid orders, consumers are expected to validate ([Order].validate_ethers()) them before use as they can expire at anytime
+    /// if the upstream [Client] returns invalid orders this stream will return them
     pub fn subscribe<C, M>(
-        cache: Arc<Mutex<OrderCache>>,
+        cache: Arc<OrderCache>,
         provider: Arc<M>,
         client: Arc<C>,
         sleep: u64,
-    ) -> Subscription<Order>
+    ) -> Pin<Box<impl Stream<Item = Order>>>
     where
         C: Client<Order> + 'static,
         M: Middleware + 'static,
@@ -36,7 +40,6 @@ impl OrderSubscriber {
         let waker = Arc::new(tokio::sync::Notify::new());
 
         // spawn a task that dumps unseen orders into the buffer
-        // warning: assumes respsones will always be in the same order!
         spawn_with_shutdown(Self::fill_buf(
             buf.clone(),
             cache.clone(),
@@ -75,9 +78,10 @@ impl OrderSubscriber {
     }
 
     // hits the api and condintally pushes orders into the buffer
+    // if the client returns expired orders they will be pushed into the buffer
     async fn fill_buf<C, M>(
         buf: Arc<Mutex<VecDeque<Order>>>,
-        cache: Arc<Mutex<OrderCache>>,
+        cache: Arc<OrderCache>,
         provider: Arc<M>,
         client: Arc<C>,
         waker: Arc<Notify>,
@@ -100,6 +104,10 @@ impl OrderSubscriber {
 
             let orders = orders.unwrap();
 
+            // spawns a non blocking task to get debug metrics on the orders
+            // could be bad casue the clone tho if theres tons of orders
+            debug_validation(orders.clone(), provider.clone());
+
             debug!(
                 "subsciber got orders: {:?}, buf size: {:?}",
                 orders.len(),
@@ -112,14 +120,13 @@ impl OrderSubscriber {
 
             let len_before = buf.len();
 
+            // could filter map and extend
             for order in orders {
                 if !cache.contains_key(&order.struct_hash().to_string()) {
                     cache.insert(order.struct_hash().to_string(), order.clone());
                     buf.push_back(order);
                 }
             }
-
-            cache.flush_closed_orders(provider.clone()).await;
 
             let len_after = buf.len();
 
@@ -133,4 +140,24 @@ impl OrderSubscriber {
             tokio::time::sleep(std::time::Duration::from_secs(sleep)).await;
         }
     }
+}
+
+fn debug_validation<M: Middleware + 'static>(orders: Vec<Order>, provider: Arc<M>) {
+    tokio::spawn(async move {
+        debug!(
+            "order validations: {:?}",
+            futures::future::join_all(
+                orders
+                    .iter()
+                    .map(|order| order.validate_ethers(provider.clone())),
+            )
+            .await
+            .iter()
+            .map(|res| match res {
+                Ok(ans) => Some(ans),
+                Err(e) => None,
+            })
+            .collect::<Vec<_>>()
+        )
+    });
 }
