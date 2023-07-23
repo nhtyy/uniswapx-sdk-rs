@@ -4,7 +4,6 @@ use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
-use uniswapx_sdk_core::order::ValidationStatus;
 use uniswapx_sdk_core::{
     order::Order,
     utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
@@ -105,10 +104,9 @@ impl OrderSubscriber {
             let orders = orders.unwrap();
 
             // spawns a non blocking task to get debug metrics on the orders
-            // could be bad casue the clone tho if theres tons of orders
             debug_validation(orders.clone(), provider.clone());
 
-            debug!(
+            info!(
                 "subsciber got orders: {:?}, buf size: {:?}",
                 orders.len(),
                 buf.len()
@@ -125,6 +123,8 @@ impl OrderSubscriber {
                 if !cache.contains_key(&order.struct_hash().to_string()) {
                     cache.insert(order.struct_hash().to_string(), order.clone());
                     buf.push_back(order);
+                } else {
+                    info!("subscriber: order already in cache");
                 }
             }
 
@@ -144,7 +144,7 @@ impl OrderSubscriber {
 
 fn debug_validation<M: Middleware + 'static>(orders: Vec<Order>, provider: Arc<M>) {
     tokio::spawn(async move {
-        debug!(
+        info!(
             "order validations: {:?}",
             futures::future::join_all(
                 orders

@@ -16,10 +16,12 @@ use ethers::{
 };
 use serde::Deserialize;
 use std::sync::Arc;
-use tracing::debug;
 use uniswapx_ethers_bindings::order_quoter::order_quoter::{
     OrderQuoter, ResolvedOrder as EthersResolvedOrder,
 };
+
+#[allow(unused_imports)]
+use tracing::{debug, error, info, trace, warn};
 
 /// https://github.com/Uniswap/uniswapx-sdk/blob/main/src/constants.ts
 /// only used for deriving our types from external api calls
@@ -110,23 +112,23 @@ impl From<String> for ValidationStatus {
     fn from(s: String) -> Self {
         match s.as_str() {
             "0x302e5b7c" | "0x773a6187" => {
-                debug!("invalid dutch decay time");
+                info!("invalid dutch decay time");
                 ValidationStatus::InvalidOrderFields
             }
             "0x4ddf4a64" => {
-                debug!("invlaid reactor");
+                info!("invalid reactor");
                 ValidationStatus::InvalidOrderFields
             }
             "0xd303758b" => {
-                debug!("both dutch input and output decay bad");
+                info!("both dutch input and output decay bad");
                 ValidationStatus::InvalidOrderFields
             }
             "0x7c1f8113" => {
-                debug!("incorrect amounts");
+                info!("incorrect amounts");
                 ValidationStatus::InvalidOrderFields
             }
             "0x43133453" => {
-                debug!("invalid dutch decay time");
+                info!("invalid dutch decay time");
                 ValidationStatus::InvalidOrderFields
             }
             "0xb9ec1e96" | "0x062dec56" | "0x75c1bb14" => ValidationStatus::ExclusivityPeriod,

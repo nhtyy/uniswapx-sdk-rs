@@ -22,7 +22,7 @@ where
     select! {
         ret = future => Some(ret),
         _ = signal::ctrl_c() => {
-            debug!("ctrl-c received, shutting down");
+            info!("ctrl-c received, shutting down");
             None
         }
     }
@@ -69,10 +69,10 @@ impl OrderCache {
         for (key, result) in keys.into_iter().zip(results.into_iter()) {
             match result {
                 Ok(ValidationStatus::OK) => {
-                    debug!("order {} is valid, keeping", key);
+                    info!("order {} is valid, keeping", key);
                 }
                 Ok(_) => {
-                    debug!("order {} is invalid, removing", key);
+                    info!("order {} is invalid, removing", key);
                     lock.remove(&key);
                 }
                 Err(e) => {
