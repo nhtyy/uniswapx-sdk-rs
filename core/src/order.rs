@@ -1,8 +1,6 @@
-use crate::contracts::internal::{
+use crate::contracts::{
     common::{OrderInfo, ResolvedOrder},
-    dutch::DutchOrder,
-    exclusive_dutch::ExclusiveDutchOrder,
-    limit::LimitOrder,
+    internal::{dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder},
 };
 use alloy_primitives::{Address, B256, U256};
 use alloy_sol_types::{SolStruct, SolType};
@@ -32,12 +30,18 @@ pub enum OrderType {
     ExclusiveDutch,
 }
 
+/// the main type of order of this crate
+/// contrains an alloy derived [OrderInner] and a signature hex encoded
+///
+/// in order for an implementor of of `Client<Order>` to use this type, they should have the hex encoded order and create the alloy type
+/// the you can create the order inner, and subsequently the order
 #[derive(Clone)]
 pub struct Order {
     pub inner: OrderInner,
     pub sig: String,
 }
 
+/// contains an alloy type
 #[derive(Clone)]
 pub enum OrderInner {
     Dutch(DutchOrder),
@@ -47,7 +51,7 @@ pub enum OrderInner {
 
 // todo macro
 impl OrderInner {
-    pub fn info(&self) -> &OrderInfo {
+    fn info(&self) -> &OrderInfo {
         match self {
             OrderInner::Dutch(o) => &o.info,
             OrderInner::Limit(o) => &o.info,
@@ -55,7 +59,7 @@ impl OrderInner {
         }
     }
 
-    pub fn encode(&self) -> Vec<u8> {
+    fn encode(&self) -> Vec<u8> {
         match self {
             OrderInner::Dutch(o) => DutchOrder::encode_single(o),
             OrderInner::Limit(o) => LimitOrder::encode_single(o),
@@ -63,7 +67,7 @@ impl OrderInner {
         }
     }
 
-    pub fn struct_hash(&self) -> B256 {
+    fn struct_hash(&self) -> B256 {
         match self {
             OrderInner::Dutch(o) => o.eip712_hash_struct(),
             OrderInner::Limit(o) => o.eip712_hash_struct(),
@@ -71,7 +75,7 @@ impl OrderInner {
         }
     }
 
-    pub fn type_hash(&self) -> B256 {
+    fn type_hash(&self) -> B256 {
         match self {
             OrderInner::Dutch(o) => o.eip712_type_hash(),
             OrderInner::Limit(o) => o.eip712_type_hash(),
@@ -79,7 +83,7 @@ impl OrderInner {
         }
     }
 
-    pub fn order_type(&self) -> OrderType {
+    fn order_type(&self) -> OrderType {
         match self {
             OrderInner::Dutch(_) => OrderType::Dutch,
             OrderInner::Limit(_) => OrderType::Limit,
@@ -177,6 +181,7 @@ impl Order {
         self.info().reactor
     }
 
+    /// warning! only returns the exclusive dutch reactor address
     pub fn quoter_address(&self) -> Address {
         // todo should be a mapping, but api only one address on doc site
         // see: https://docs.uniswap.org/contracts/uniswapx/overview
@@ -185,6 +190,7 @@ impl Order {
             .expect("quoter address to parse")
     }
 
+    /// use an ethers client to validate the order
     pub async fn validate_ethers<M: Middleware + 'static>(
         &self,
         middleware: Arc<M>,
@@ -198,6 +204,7 @@ impl Order {
         }
     }
 
+    /// use an ethers client to resolve and quote the order
     pub async fn quote_ethers<M: Middleware + 'static>(
         &self,
         middleware: Arc<M>,

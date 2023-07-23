@@ -1,4 +1,4 @@
-use super::common::OrderInfo;
+use super::super::common::OrderInfo;
 use alloy_sol_types::sol;
 
 sol! {

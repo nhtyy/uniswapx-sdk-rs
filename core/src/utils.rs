@@ -28,6 +28,8 @@ where
     }
 }
 
+/// a task safe cache meeant to be shared across subscribers
+/// it is defined with a `flush_interval` which is also a task, to purge bad orders
 pub struct OrderCache {
     cache: Mutex<HashMap<String, Order>>,
 }
@@ -55,11 +57,12 @@ impl OrderCache {
             cache: Mutex::new(HashMap::new()),
         });
 
-        spawn_with_shutdown(Self::flush_task(new.clone(), provider, flush_interval));
+        Self::spawn_flush_task(new.clone(), provider, flush_interval);
 
         new
     }
 
+    /// flushes the cache, removing invalid orders
     pub async fn flush<M>(self: Arc<Self>, provider: std::sync::Arc<M>)
     where
         M: Middleware + 'static,
@@ -95,13 +98,16 @@ impl OrderCache {
         drop(lock);
     }
 
-    async fn flush_task<M>(self: Arc<Self>, provider: Arc<M>, flush_interval: u64)
+    // doesnt return a join handle but is spawned with shutdown
+    fn spawn_flush_task<M>(self: Arc<Self>, provider: Arc<M>, flush_interval: u64)
     where
         M: Middleware + 'static,
     {
-        loop {
-            tokio::time::sleep(tokio::time::Duration::from_secs(flush_interval)).await;
-            self.clone().flush(provider.clone()).await;
-        }
+        spawn_with_shutdown(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(flush_interval)).await;
+                self.clone().flush(provider.clone()).await;
+            }
+        });
     }
 }

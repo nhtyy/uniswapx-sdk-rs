@@ -1,8 +1,10 @@
-use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
+/// the default response types from the uniswap api
 pub mod response_types;
+
 use super::client::Client;
 use alloy_sol_types::Error as AlloySolTypeError;
 use reqwest::{Client as ReqwestClient, Url};
+use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 use uniswapx_sdk_core::order::OrderType;
 use uniswapx_sdk_core::{
     contracts::internal::{
@@ -70,6 +72,7 @@ impl UniswapClient {
 impl Client<Order> for UniswapClient {
     type ClientError = ClientError;
 
+    /// returns as many open orders as possible
     async fn firehose(&self) -> Result<Vec<Order>, Self::ClientError> {
         let res = self
             .get_orders_with_params(ApiParams {
