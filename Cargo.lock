@@ -3445,6 +3445,7 @@ dependencies = [
  "alloy-sol-types",
  "async-stream",
  "async-trait",
+ "ethers",
  "futures",
  "futures-util",
  "reqwest",

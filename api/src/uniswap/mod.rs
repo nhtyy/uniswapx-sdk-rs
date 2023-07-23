@@ -1,8 +1,8 @@
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
 pub mod response_types;
-use super::client::OrderClient;
+use super::client::Client;
 use alloy_sol_types::Error as AlloySolTypeError;
-use reqwest::{Client, Url};
+use reqwest::{Client as ReqwestClient, Url};
 use uniswapx_sdk_core::order::OrderType;
 use uniswapx_sdk_core::{
     contracts::internal::{
@@ -14,7 +14,7 @@ use uniswapx_sdk_core::{
 const URL: &str = "https://api.uniswap.org/v2/orders";
 
 pub struct UniswapClient {
-    client: Client,
+    client: ReqwestClient,
     url: Url,
     chain_id: usize,
 }
@@ -40,7 +40,7 @@ impl ApiParams {
 impl UniswapClient {
     pub fn new(chain_id: usize) -> Self {
         Self {
-            client: Client::new(),
+            client: ReqwestClient::new(),
             url: Url::parse(URL).expect("URL to parse"),
             chain_id,
         }
@@ -63,13 +63,13 @@ impl UniswapClient {
 }
 
 #[async_trait::async_trait]
-impl OrderClient for UniswapClient {
+impl Client<Order> for UniswapClient {
     type ClientError = ClientError;
 
     async fn firehose(&self) -> Result<Vec<Order>, Self::ClientError> {
         let res = self
             .get_orders_with_params(ApiParams {
-                limit: 1,
+                limit: 10,
                 chain_id: self.chain_id,
                 order_status: OrderStatus::Open,
             })

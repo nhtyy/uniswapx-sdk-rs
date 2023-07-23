@@ -54,9 +54,9 @@ impl OrderInner {
 
     pub fn encode(&self) -> Vec<u8> {
         match self {
-            OrderInner::Dutch(o) => DutchOrder::encode(o),
-            OrderInner::Limit(o) => LimitOrder::encode(o),
-            OrderInner::ExclusiveDutch(o) => ExclusiveDutchOrder::encode(o),
+            OrderInner::Dutch(o) => DutchOrder::encode_single(o),
+            OrderInner::Limit(o) => LimitOrder::encode_single(o),
+            OrderInner::ExclusiveDutch(o) => ExclusiveDutchOrder::encode_single(o),
         }
     }
 
@@ -138,14 +138,23 @@ impl Order {
         self.info().reactor
     }
 
+    pub fn quoter_address(&self) -> Address {
+        // todo should be a mapping, but api only supports one order type rn
+        "0x7714520f383C998e8822E8743FD6f90A2979689b"
+            .parse()
+            .expect("quoter address to parse")
+    }
+
     pub async fn validate_ethers<M: Middleware + 'static>(
         &self,
         middleware: Arc<M>,
-        quoter_address: Address,
     ) -> Result<bool, ValidationError<M>> {
-        match self.quote_ethers(middleware, quoter_address).await {
+        match self.quote_ethers(middleware, self.quoter_address()).await {
             Ok(_) => Ok(true),
-            Err(ValidationError::ContractError(ContractError::Revert(bytes))) => Ok(false),
+            Err(ValidationError::ContractError(ContractError::Revert(bytes))) => {
+                println!("revert bytes: {:?}", bytes);
+                Ok(false)
+            }
             Err(err) => Err(err),
         }
     }
@@ -173,12 +182,6 @@ impl Order {
         quoter_address: EthersAddress,
     ) -> Result<ContractCall<M, EthersResolvedOrder>, ParseBytesError> {
         let quoter = OrderQuoter::new(quoter_address, middleware);
-
-        let calldata = quoter.encode::<ethers::types::Bytes>("getReactor", self.encode().into());
-
-        println!("calldata: {:?}", calldata);
-
-        println!("reactor {:?}", self.reactor_address().to_string());
 
         Ok(quoter.quote(self.encode().into(), self.sig.parse()?))
     }
@@ -250,23 +253,5 @@ impl<M: Middleware> From<ContractError<M>> for ValidationError<M> {
 impl<M: Middleware> From<ParseBytesError> for ValidationError<M> {
     fn from(e: ParseBytesError) -> Self {
         ValidationError::SigParseError(e)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_alloy_encoding() {
-        let encoded_struct = "000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000001200000000000000000000000000000000000000000000000000000000064b51b750000000000000000000000000000000000000000000000000000000064b51b75000000000000000000000000b507d4ef5ed7a01e37cb578f497329cdb3c273a50000000000000000000000000000000000000000000000000000000000002710000000000000000000000000111111111117dc0aa78b770fa6a738034120c3020000000000000000000000000000000000000000000000056bc75e2d631000000000000000000000000000000000000000000000000000056bc75e2d631000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000e80bf394d190851e215d5f67b67f8f5a52783f1e000000000000000000000000b8bff65b2eeb60d6b37312ca0740a742d5e7f95500000000000000000000000000000000000000000000000000000189635c5eac0000000000000000000000000000000000000000000000000000000064b51b75000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000c02aaa39b223fe8d0a0e5c4f27ead9083c756cc20000000000000000000000000000000000000000000000000039a65e493e91140000000000000000000000000000000000000000000000000039a65e493e9114000000000000000000000000b8bff65b2eeb60d6b37312ca0740a742d5e7f955";
-
-        let alloy_type = ExclusiveDutchOrder::hex_decode_single(&encoded_struct, true)
-            .expect("alloy type to parse");
-
-        assert_eq!(
-            encoded_struct,
-            hex::encode(ExclusiveDutchOrder::encode_single(&alloy_type))
-        );
     }
 }

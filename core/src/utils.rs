@@ -1,4 +1,5 @@
 use crate::order::Order;
+use ethers::providers::Middleware;
 use futures::{Stream, StreamExt};
 use std::{collections::HashMap, pin::Pin};
 use tokio::{select, signal, spawn, task::JoinHandle};
@@ -28,24 +29,25 @@ where
 /// convience struct for spawning a handler task
 ///
 /// see [OrderHandler::spawn] for more info
-pub struct OrderHandler {
+pub struct TaskHandler {
     pub handle: JoinHandle<Option<()>>,
 }
 
-impl OrderHandler {
-    /// spawn a handler task for a stream of orders
-    ///
-    /// this stream is expected not to end
-    /// the handler doees not return a value
-    pub fn spawn<S, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
+impl TaskHandler {
+    /// spawn a handler task for a stream
+    ///    /// the handler doees not return a value
+    pub fn spawn<S, I, Func>(mut stream: Pin<Box<S>>, mut handler: Func) -> Self
     where
-        S: Stream<Item = Order> + Send + 'static,
-        Func: FnMut(Order) -> () + Send + 'static,
+        S: Stream<Item = I> + Send + 'static,
+        Func: FnMut(I) -> () + Send + 'static,
     {
         let handle = spawn_with_shutdown(async move {
             loop {
-                let order = stream.next().await.expect("this stream should never end");
-                handler(order);
+                if let Some(item) = stream.next().await {
+                    handler(item);
+                } else {
+                    break;
+                }
             }
         });
 
@@ -78,5 +80,30 @@ impl OrderCache {
         }
     }
 
-    pub fn flush_closed_orders(&mut self, timestamp: u64) {}
+    pub async fn flush_closed_orders<M: Middleware + 'static>(
+        &mut self,
+        provider: std::sync::Arc<M>,
+    ) {
+        let (keys, futures): (Vec<_>, Vec<_>) = self
+            .iter()
+            .map(|(k, order)| (k.clone(), order.validate_ethers(provider.clone())))
+            .unzip();
+
+        let results = futures::future::join_all(futures).await;
+
+        for (key, result) in keys.into_iter().zip(results.into_iter()) {
+            match result {
+                Ok(false) => {
+                    println!("order {} is invalid", key);
+                    self.remove(&key);
+                }
+                Ok(_) => {
+                    println!("order {} is valid", key);
+                }
+                Err(e) => {
+                    println!("error: {:?}", e);
+                }
+            }
+        }
+    }
 }

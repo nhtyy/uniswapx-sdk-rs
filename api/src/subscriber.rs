@@ -1,4 +1,5 @@
-use super::client::OrderClient;
+use super::client::Client;
+use ethers::providers::Middleware;
 use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
@@ -20,11 +21,16 @@ pub struct OrderSubscriber;
 
 /// a never ending subscription to open orders
 impl OrderSubscriber {
-    pub fn subscribe<C: OrderClient + 'static>(
+    pub fn subscribe<C, M>(
         cache: Arc<Mutex<OrderCache>>,
+        provider: Arc<M>,
         client: Arc<C>,
         sleep: u64,
-    ) -> Subscription<Order> {
+    ) -> Subscription<Order>
+    where
+        C: Client<Order> + 'static,
+        M: Middleware + 'static,
+    {
         let buf = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
 
@@ -33,6 +39,7 @@ impl OrderSubscriber {
         spawn_with_shutdown(Self::fill_buf(
             buf.clone(),
             cache.clone(),
+            provider.clone(),
             client.clone(),
             waker.clone(),
             sleep,
@@ -67,13 +74,17 @@ impl OrderSubscriber {
     }
 
     // hits the api and condintally pushes orders into the buffer
-    async fn fill_buf<C: OrderClient>(
+    async fn fill_buf<C, M>(
         buf: Arc<Mutex<VecDeque<Order>>>,
         cache: Arc<Mutex<OrderCache>>,
+        provider: Arc<M>,
         client: Arc<C>,
         waker: Arc<Notify>,
         sleep: u64,
-    ) {
+    ) where
+        C: Client<Order> + 'static,
+        M: Middleware + 'static,
+    {
         loop {
             let mut buf = buf.lock().await;
             let mut cache = cache.lock().await;
@@ -103,7 +114,7 @@ impl OrderSubscriber {
                 }
             }
 
-            cache.flush_closed_orders(0); // todo!
+            cache.flush_closed_orders(provider.clone()).await;
 
             let len_after = buf.len();
 
