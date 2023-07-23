@@ -28,8 +28,8 @@ impl OrderSubscriber {
     pub fn subscribe<C, M>(
         cache: Arc<OrderCache>,
         provider: Arc<M>,
-        client: Arc<C>,
-        sleep: u64,
+        client: C,
+        poll_interval: u64,
     ) -> Pin<Box<impl Stream<Item = Order>>>
     where
         C: Client<Order> + 'static,
@@ -37,15 +37,16 @@ impl OrderSubscriber {
     {
         let buf = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
+        let arc_client = Arc::new(client);
 
         // spawn a task that dumps unseen orders into the buffer
         spawn_with_shutdown(Self::fill_buf(
             buf.clone(),
             cache.clone(),
             provider.clone(),
-            client.clone(),
+            arc_client.clone(),
             waker.clone(),
-            sleep,
+            poll_interval,
         ));
 
         Box::pin(async_stream::stream! {
@@ -84,15 +85,12 @@ impl OrderSubscriber {
         provider: Arc<M>,
         client: Arc<C>,
         waker: Arc<Notify>,
-        sleep: u64,
+        poll_interval: u64,
     ) where
         C: Client<Order> + 'static,
         M: Middleware + 'static,
     {
         loop {
-            let mut buf = buf.lock().await;
-            let mut cache = cache.lock().await;
-
             let orders = client.firehose().await;
 
             // will try again so just continue
@@ -106,15 +104,18 @@ impl OrderSubscriber {
             // spawns a non blocking task to get debug metrics on the orders
             debug_validation(orders.clone(), provider.clone());
 
+            if orders.len() == 0 {
+                continue;
+            }
+
+            let mut buf = buf.lock().await;
+            let mut cache = cache.lock().await;
+
             info!(
                 "subsciber got orders: {:?}, buf size: {:?}",
                 orders.len(),
                 buf.len()
             );
-
-            if orders.len() == 0 {
-                continue;
-            }
 
             let len_before = buf.len();
 
@@ -137,7 +138,7 @@ impl OrderSubscriber {
                 waker.notify_one();
             }
 
-            tokio::time::sleep(std::time::Duration::from_secs(sleep)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(poll_interval)).await;
         }
     }
 }

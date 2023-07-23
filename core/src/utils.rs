@@ -47,10 +47,17 @@ impl std::ops::DerefMut for OrderCache {
 }
 
 impl OrderCache {
-    pub fn new() -> Self {
-        Self {
+    /// spawns a task that flushes the cache every [] seconds
+    ///
+    /// uses the [Middleware] to validate orders
+    pub fn new<M: Middleware + 'static>(provider: Arc<M>, flush_interval: u64) -> Arc<Self> {
+        let new = Arc::new(Self {
             cache: Mutex::new(HashMap::new()),
-        }
+        });
+
+        spawn_with_shutdown(Self::flush_task(new.clone(), provider, flush_interval));
+
+        new
     }
 
     pub async fn flush<M>(self: Arc<Self>, provider: std::sync::Arc<M>)
@@ -82,6 +89,19 @@ impl OrderCache {
                     );
                 }
             }
+        }
+
+        // explicity drop lock for sanity
+        drop(lock);
+    }
+
+    async fn flush_task<M>(self: Arc<Self>, provider: Arc<M>, flush_interval: u64)
+    where
+        M: Middleware + 'static,
+    {
+        loop {
+            tokio::time::sleep(tokio::time::Duration::from_secs(flush_interval)).await;
+            self.clone().flush(provider.clone()).await;
         }
     }
 }

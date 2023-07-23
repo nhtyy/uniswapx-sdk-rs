@@ -5,11 +5,11 @@ see `cargo book --open` to see the full docs
 The crate will have 3 main parts, api, server and core.
 
 - api:
-  - subscribers and clients are defined here. There is a default uniswap client built in.
+  - subscribers and clients are defined here. There is a default uniswap client implementation in `api/src/uniswap/`
   - you can wrap any api by implementing the async trait `Client<Order>` over it
 - core:
   - Alloy-rs structs live here
-  - contains validations in the style of the UniswapX-sdk in javascript
+  - contains validations in the style of [the UniswapX-sdk](https://github.com/Uniswap/uniswapx-sdk/tree/main)
   - an order cache that can be shared between subscribers
   - order builders (coming soon)
 - server (coming soon)
@@ -35,9 +35,9 @@ async fn main() {
         ethers::providers::Provider::<Http>::try_from(PROVIDER_URL).expect("provider url to parse"),
     );
 
-    let client = Arc::new(UniswapClient::new(1));
+    let client = UniswapClient::new(1);
 
-    let cache = Arc::new(OrderCache::new());
+    let cache: Arc<OrderCache> = OrderCache::new();
 
     let mut sub = OrderSubscriber::subscribe(cache, provider.clone(), client, 5);
 
