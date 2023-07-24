@@ -16,8 +16,6 @@ use tracing::{debug, error, info, trace, warn};
 // can have 'subscribe' and 'is_expired' as abstract methods
 // it should have a `Self::Target`
 
-// make we can make the buffer fun
-
 pub struct OrderSubscriber;
 
 impl OrderSubscriber {
