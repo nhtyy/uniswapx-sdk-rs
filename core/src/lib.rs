@@ -1,4 +1,4 @@
-/// contains the public and internal contract types derived from the ally [sol!] macro
+/// contains the public and internal contract types derived from the alloy [sol!] macro
 pub mod contracts;
 
 /// the core types of the sdk
