@@ -24,26 +24,23 @@ impl OrderSubscriber {
     /// a never ending subscription to some [Order]s
     ///
     /// this stream can return invalid orders, consumers are expected to validate ([Order].validate_ethers()) them before use as they can expire at anytime
-    pub fn subscribe<C, M>(
+    pub fn subscribe<C>(
         cache: Arc<OrderCache>,
-        provider: Arc<M>,
         client: C,
         poll_interval: u64,
     ) -> Pin<Box<impl Stream<Item = Order>>>
     where
         C: Client<Order> + 'static,
-        M: Middleware + 'static,
     {
         let buf = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
-        let arc_client = Arc::new(client);
+        let client = Arc::new(client);
 
         // spawn a task that dumps unseen orders into the buffer
         spawn_with_shutdown(Self::fill_buf(
             buf.clone(),
             cache.clone(),
-            provider.clone(),
-            arc_client.clone(),
+            client.clone(),
             waker.clone(),
             poll_interval,
         ));
@@ -78,30 +75,26 @@ impl OrderSubscriber {
 
     // hits the api and condintally pushes orders into the buffer
     // if the client returns expired orders they will be pushed into the buffer
-    async fn fill_buf<C, M>(
+    async fn fill_buf<C>(
         buf: Arc<Mutex<VecDeque<Order>>>,
         cache: Arc<OrderCache>,
-        provider: Arc<M>,
         client: Arc<C>,
         waker: Arc<Notify>,
         poll_interval: u64,
     ) where
         C: Client<Order> + 'static,
-        M: Middleware + 'static,
     {
         loop {
             let orders = client.firehose().await;
 
             // will try again so just continue
             if orders.is_err() {
-                error!("subscriber: error getting order froms the client");
+                error!("subscriber: error getting order froms the client, trying again");
+                tokio::time::sleep(std::time::Duration::from_secs(poll_interval)).await;
                 continue;
             }
 
             let orders = orders.unwrap();
-
-            // spawns a non blocking task to get debug metrics on the orders
-            debug_validation(orders.clone(), provider.clone());
 
             if orders.len() == 0 {
                 continue;
@@ -140,27 +133,4 @@ impl OrderSubscriber {
             tokio::time::sleep(std::time::Duration::from_secs(poll_interval)).await;
         }
     }
-}
-
-fn debug_validation<M: Middleware + 'static>(orders: Vec<Order>, provider: Arc<M>) {
-    tokio::spawn(async move {
-        info!(
-            "order validations: {:?}",
-            futures::future::join_all(
-                orders
-                    .iter()
-                    .map(|order| order.validate_ethers(provider.clone())),
-            )
-            .await
-            .iter()
-            .map(|res| match res {
-                Ok(ans) => Some(ans),
-                Err(e) => {
-                    error!("error validating order: {:?}", e);
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-        )
-    });
 }

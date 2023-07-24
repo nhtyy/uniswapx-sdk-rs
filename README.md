@@ -42,7 +42,7 @@ async fn main() {
 
     let cache: Arc<OrderCache> = OrderCache::new(provider.clone(), 10);
 
-    let mut sub = OrderSubscriber::subscribe(cache.clone(), provider.clone(), client, 5);
+    let mut sub = OrderSubscriber::subscribe(cache.clone(), client, 5);
 
     while let Some(order) = sub.next().await {
         tokio::spawn(handle_order(order, provider.clone()));

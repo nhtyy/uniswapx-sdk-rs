@@ -40,20 +40,6 @@ pub struct OrderCache {
     cache: Mutex<HashMap<String, Order>>,
 }
 
-impl std::ops::Deref for OrderCache {
-    type Target = Mutex<HashMap<String, Order>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.cache
-    }
-}
-
-impl std::ops::DerefMut for OrderCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.cache
-    }
-}
-
 impl OrderCache {
     /// spawns a task that flushes the cache every `flush_interval` seconds
     ///
@@ -112,8 +98,23 @@ impl OrderCache {
         spawn_with_shutdown(async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(flush_interval)).await;
+                info!("flushing cache");
                 self.clone().flush(provider.clone()).await;
             }
         });
+    }
+}
+
+impl std::ops::Deref for OrderCache {
+    type Target = Mutex<HashMap<String, Order>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.cache
+    }
+}
+
+impl std::ops::DerefMut for OrderCache {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.cache
     }
 }
