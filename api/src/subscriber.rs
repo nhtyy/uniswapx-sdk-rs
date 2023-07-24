@@ -16,12 +16,13 @@ use tracing::{debug, error, info, trace, warn};
 // can have 'subscribe' and 'is_expired' as abstract methods
 // it should have a `Self::Target`
 
+/// see [OrderSubscriber::subscribe]
 pub struct OrderSubscriber;
 
 impl OrderSubscriber {
     /// a never ending subscription to some [Order]s
     ///
-    /// this stream can return invalid orders, consumers are expected to validate ([Order].validate_ethers()) them before use as they can expire at anytime
+    /// this stream can return invalid orders, consumers are expected to validate ([Order::validate_ethers]) them before use as they can expire at anytime
     pub fn subscribe<C>(
         cache: Arc<OrderCache>,
         client: C,
