@@ -9,7 +9,6 @@ members=[
 	"server",
 	"api",
 	"core",
-	"working-bin"
 ]
 
 default_members=[
@@ -17,7 +16,6 @@ default_members=[
 	"server",
 	"api",
 	"core",
-	"working-bin"
 ]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
