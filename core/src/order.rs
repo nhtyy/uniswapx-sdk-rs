@@ -13,13 +13,37 @@ use ethers::{
     types::{Address as EthersAddress, ParseBytesError},
 };
 use serde::Deserialize;
-use std::sync::Arc;
+use std::{ops::Deref, sync::Arc};
 use uniswapx_ethers_bindings::order_quoter::order_quoter::{
     OrderQuoter, ResolvedOrder as EthersResolvedOrder,
 };
 
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
+
+/// the main type of order of this crate
+/// contrains an alloy derived [OrderInner] and a signature hex encoded
+///
+/// in order for an implementor of of `Client<Order>` to use this type, they should have the hex encoded order and create the alloy type
+/// the you can create the order inner, and subsequently the order
+#[derive(Clone)]
+pub struct Order {
+    inner: OrderInner,
+}
+
+/// contains an alloy type
+#[derive(Clone)]
+enum OrderInner {
+    Dutch(DutchOrder),
+    Limit(LimitOrder),
+    ExclusiveDutch(ExclusiveDutchOrder),
+}
+
+#[derive(Clone)]
+pub struct SignedOrder {
+    pub order: Order,
+    pub sig: String,
+}
 
 /// https://github.com/Uniswap/uniswapx-sdk/blob/main/src/constants.ts
 /// only used for deriving our types from external api calls
@@ -30,23 +54,23 @@ pub enum OrderType {
     ExclusiveDutch,
 }
 
-/// the main type of order of this crate
-/// contrains an alloy derived [OrderInner] and a signature hex encoded
-///
-/// in order for an implementor of of `Client<Order>` to use this type, they should have the hex encoded order and create the alloy type
-/// the you can create the order inner, and subsequently the order
-#[derive(Clone)]
-pub struct Order {
-    pub inner: OrderInner,
-    pub sig: String,
+#[derive(Debug)]
+pub enum ValidationError<M: Middleware> {
+    ContractError(ContractError<M>),
+    SigParseError(ParseBytesError),
 }
 
-/// contains an alloy type
-#[derive(Clone)]
-pub enum OrderInner {
-    Dutch(DutchOrder),
-    Limit(LimitOrder),
-    ExclusiveDutch(ExclusiveDutchOrder),
+#[derive(Debug)]
+pub enum ValidationStatus {
+    Expired,
+    NonceUsed,
+    InsufficientFunds,
+    InvalidSignature,
+    InvalidOrderFields,
+    UnknownError(String),
+    ValidationFailed,
+    ExclusivityPeriod,
+    OK,
 }
 
 // todo macro
@@ -92,25 +116,6 @@ impl OrderInner {
     }
 }
 
-#[derive(Debug)]
-pub enum ValidationError<M: Middleware> {
-    ContractError(ContractError<M>),
-    SigParseError(ParseBytesError),
-}
-
-#[derive(Debug)]
-pub enum ValidationStatus {
-    Expired,
-    NonceUsed,
-    InsufficientFunds,
-    InvalidSignature,
-    InvalidOrderFields,
-    UnknownError(String),
-    ValidationFailed,
-    ExclusivityPeriod,
-    OK,
-}
-
 /// see https://github.com/Uniswap/uniswapx-sdk/blob/01b4516bde998503ee01555644e3711cb36892c9/src/utils/OrderQuoter.ts#L45
 impl From<String> for ValidationStatus {
     fn from(s: String) -> Self {
@@ -148,9 +153,56 @@ impl From<String> for ValidationStatus {
     }
 }
 
+impl SignedOrder {
+    /// use an ethers client to validate the order
+    pub async fn validate_ethers<M: Middleware + 'static>(
+        &self,
+        middleware: Arc<M>,
+    ) -> Result<ValidationStatus, ValidationError<M>> {
+        match self
+            .quote_ethers(middleware, self.order.quoter_address())
+            .await
+        {
+            Ok(_) => Ok(ValidationStatus::OK),
+            Err(ValidationError::ContractError(ContractError::Revert(bytes))) => {
+                Ok(ValidationStatus::from(bytes.to_string()))
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    /// use an ethers client to resolve and quote the order
+    pub async fn quote_ethers<M: Middleware + 'static>(
+        &self,
+        middleware: Arc<M>,
+        quoter_address: Address,
+    ) -> Result<ResolvedOrder, ValidationError<M>> {
+        Ok(into_alloy_resolved_order(
+            self.quote_contract_call(
+                middleware,
+                quoter_address
+                    .to_string()
+                    .parse::<EthersAddress>()
+                    .expect("alloy type to parse by ethers"),
+            )?
+            .await?,
+        ))
+    }
+
+    fn quote_contract_call<M: Middleware>(
+        &self,
+        middleware: Arc<M>,
+        quoter_address: EthersAddress,
+    ) -> Result<ContractCall<M, EthersResolvedOrder>, ParseBytesError> {
+        let quoter = OrderQuoter::new(quoter_address, middleware);
+
+        Ok(quoter.quote(self.order.encode().into(), self.sig.parse()?))
+    }
+}
+
 impl Order {
-    pub fn new(inner: OrderInner, sig: String) -> Self {
-        Self { inner, sig }
+    pub fn signed(self, sig: String) -> SignedOrder {
+        SignedOrder { order: self, sig }
     }
 
     pub fn info(&self) -> &OrderInfo {
@@ -189,47 +241,13 @@ impl Order {
             .parse()
             .expect("quoter address to parse")
     }
+}
 
-    /// use an ethers client to validate the order
-    pub async fn validate_ethers<M: Middleware + 'static>(
-        &self,
-        middleware: Arc<M>,
-    ) -> Result<ValidationStatus, ValidationError<M>> {
-        match self.quote_ethers(middleware, self.quoter_address()).await {
-            Ok(_) => Ok(ValidationStatus::OK),
-            Err(ValidationError::ContractError(ContractError::Revert(bytes))) => {
-                Ok(ValidationStatus::from(bytes.to_string()))
-            }
-            Err(err) => Err(err),
-        }
-    }
+impl Deref for SignedOrder {
+    type Target = Order;
 
-    /// use an ethers client to resolve and quote the order
-    pub async fn quote_ethers<M: Middleware + 'static>(
-        &self,
-        middleware: Arc<M>,
-        quoter_address: Address,
-    ) -> Result<ResolvedOrder, ValidationError<M>> {
-        Ok(into_alloy_resolved_order(
-            self.quote_contract_call(
-                middleware,
-                quoter_address
-                    .to_string()
-                    .parse::<EthersAddress>()
-                    .expect("alloy type to parse by ethers"),
-            )?
-            .await?,
-        ))
-    }
-
-    fn quote_contract_call<M: Middleware>(
-        &self,
-        middleware: Arc<M>,
-        quoter_address: EthersAddress,
-    ) -> Result<ContractCall<M, EthersResolvedOrder>, ParseBytesError> {
-        let quoter = OrderQuoter::new(quoter_address, middleware);
-
-        Ok(quoter.quote(self.encode().into(), self.sig.parse()?))
+    fn deref(&self) -> &Self::Target {
+        &self.order
     }
 }
 
@@ -253,6 +271,30 @@ impl From<LimitOrder> for OrderInner {
 impl From<ExclusiveDutchOrder> for OrderInner {
     fn from(order: ExclusiveDutchOrder) -> Self {
         OrderInner::ExclusiveDutch(order)
+    }
+}
+
+impl From<DutchOrder> for Order {
+    fn from(order: DutchOrder) -> Self {
+        Order {
+            inner: OrderInner::from(order),
+        }
+    }
+}
+
+impl From<LimitOrder> for Order {
+    fn from(order: LimitOrder) -> Self {
+        Order {
+            inner: OrderInner::from(order),
+        }
+    }
+}
+
+impl From<ExclusiveDutchOrder> for Order {
+    fn from(order: ExclusiveDutchOrder) -> Self {
+        Order {
+            inner: OrderInner::from(order),
+        }
     }
 }
 

@@ -1,6 +1,6 @@
-use crate::order::{Order, ValidationStatus};
+use crate::order::{SignedOrder, ValidationStatus};
 use ethers::providers::Middleware;
-use std::{collections::HashMap, pin::Pin, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 use tokio::{select, signal, spawn, sync::Mutex, task::JoinHandle};
 
 #[allow(unused_imports)]
@@ -37,7 +37,7 @@ where
 /// a task safe cache meant to be shared across subscribers
 /// it is instanitaed with a [tokio::task] to flush itself periodically
 pub struct OrderCache {
-    cache: Mutex<HashMap<String, Order>>,
+    cache: Mutex<HashMap<String, SignedOrder>>,
 }
 
 impl OrderCache {
@@ -106,7 +106,7 @@ impl OrderCache {
 }
 
 impl std::ops::Deref for OrderCache {
-    type Target = Mutex<HashMap<String, Order>>;
+    type Target = Mutex<HashMap<String, SignedOrder>>;
 
     fn deref(&self) -> &Self::Target {
         &self.cache

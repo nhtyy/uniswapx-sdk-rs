@@ -6,7 +6,7 @@ The crate will have 3 main parts, api, server and core.
 
 - api:
   - subscribers and clients are defined here. There is a default uniswap client implementation in `api/src/uniswap/`
-  - you can wrap any api by implementing the async trait `Client<Order>` over it
+  - you can wrap any api by implementing the async trait `Client<SignedOrder>` over it
 - core:
   - Alloy-rs structs live here
   - contains validations in the style of [the UniswapX-sdk](https://github.com/Uniswap/uniswapx-sdk/tree/main)
@@ -21,10 +21,9 @@ An example setup
 use ethers::providers::{Http, Middleware};
 use futures::StreamExt;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use uniswapx_sdk_api::{subscriber::OrderSubscriber, uniswap::UniswapClient};
 use uniswapx_sdk_core::{
-    order::Order,
+    order::SignedOrder,
     utils::{spawn_with_shutdown, OrderCache},
 };
 
@@ -38,18 +37,27 @@ async fn main() {
         ethers::providers::Provider::<Http>::try_from(PROVIDER_URL).expect("provider url to parse"),
     );
 
+    // a thread safe cache that will flush itself every 10 seconds
+    let cache = OrderCache::new(provider.clone(), 10);
+
+    // a client for chain id = 1
     let client = UniswapClient::new(1);
 
-    let cache: Arc<OrderCache> = OrderCache::new(provider.clone(), 10);
+    // could be made into a util function
+    // spawn_order_handler or something
+    spawn_with_shutdown(async move {
+        // a stream of unvalidated orders
+        let mut sub = OrderSubscriber::subscribe(cache.clone(), client, 5);
 
-    let mut sub = OrderSubscriber::subscribe(cache.clone(), client, 5);
-
-    while let Some(order) = sub.next().await {
-        tokio::spawn(handle_order(order, provider.clone()));
-    }
+        while let Some(order) = sub.next().await {
+            tokio::spawn(handle_order(order, provider.clone()));
+        }
+    })
+    .await
+    .unwrap();
 }
 
-async fn handle_order<M: Middleware + 'static>(order: Order, provider: Arc<M>) {
+async fn handle_order<M: Middleware + 'static>(order: SignedOrder, provider: Arc<M>) {
     println!("reactor: {:?}", order.reactor_address());
 
     match order.validate_ethers(provider.clone()).await {
@@ -58,7 +66,6 @@ async fn handle_order<M: Middleware + 'static>(order: Order, provider: Arc<M>) {
             println!("deadline: {:?}", order.deadline());
 
             // do stuff with order
-            //
         }
         Err(e) => {
             println!("error: {:?}", e);

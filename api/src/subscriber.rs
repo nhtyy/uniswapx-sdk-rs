@@ -1,13 +1,10 @@
 use super::client::Client;
-use ethers::providers::Middleware;
 use futures::Stream;
 use std::{collections::VecDeque, pin::Pin, sync::Arc};
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
-use uniswapx_sdk_core::{
-    order::Order,
-    utils::{run_with_shutdown, spawn_with_shutdown, OrderCache},
-};
+use uniswapx_sdk_core::order::SignedOrder;
+use uniswapx_sdk_core::utils::{run_with_shutdown, spawn_with_shutdown, OrderCache};
 
 #[allow(unused_imports)]
 use tracing::{debug, error, info, trace, warn};
@@ -27,9 +24,9 @@ impl OrderSubscriber {
         cache: Arc<OrderCache>,
         client: C,
         poll_interval: u64,
-    ) -> Pin<Box<impl Stream<Item = Order>>>
+    ) -> Pin<Box<impl Stream<Item = SignedOrder>>>
     where
-        C: Client<Order> + 'static,
+        C: Client<SignedOrder> + 'static,
     {
         let buf = Arc::new(Mutex::new(VecDeque::new()));
         let waker = Arc::new(tokio::sync::Notify::new());
@@ -56,7 +53,7 @@ impl OrderSubscriber {
     /// awaits a notification from task filling buf iff no orders are in buf
     ///
     // inline async blocks dont seem to work in a stream! macro so we need this function
-    async fn read_buf(buf: Arc<Mutex<VecDeque<Order>>>, waker: Arc<Notify>) -> Order {
+    async fn read_buf(buf: Arc<Mutex<VecDeque<SignedOrder>>>, waker: Arc<Notify>) -> SignedOrder {
         loop {
             let mut buf = buf.lock().await;
 
@@ -75,13 +72,13 @@ impl OrderSubscriber {
     // hits the api and condintally pushes orders into the buffer
     // if the client returns expired orders they will be pushed into the buffer
     async fn fill_buf<C>(
-        buf: Arc<Mutex<VecDeque<Order>>>,
+        buf: Arc<Mutex<VecDeque<SignedOrder>>>,
         cache: Arc<OrderCache>,
         client: Arc<C>,
         waker: Arc<Notify>,
         poll_interval: u64,
     ) where
-        C: Client<Order> + 'static,
+        C: Client<SignedOrder> + 'static,
     {
         loop {
             let orders = client.firehose().await;
@@ -113,7 +110,7 @@ impl OrderSubscriber {
             // could filter map and extend
             for order in orders {
                 if !cache.contains_key(&order.struct_hash().to_string()) {
-                    cache.insert(order.struct_hash().to_string(), order.clone());
+                    cache.insert(order.struct_hash().to_string(), SignedOrder::clone(&order));
                     buf.push_back(order);
                 } else {
                     info!("subscriber: order already in cache");

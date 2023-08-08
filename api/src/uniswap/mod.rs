@@ -5,12 +5,12 @@ use super::client::Client;
 use alloy_sol_types::Error as AlloySolTypeError;
 use reqwest::{Client as ReqwestClient, Url};
 use response_types::{OrderResponse, OrderResponseInner, OrderStatus};
-use uniswapx_sdk_core::order::OrderType;
+use uniswapx_sdk_core::order::{OrderType, SignedOrder};
 use uniswapx_sdk_core::{
     contracts::internal::{
         dutch::DutchOrder, exclusive_dutch::ExclusiveDutchOrder, limit::LimitOrder,
     },
-    order::{Order, OrderInner},
+    order::Order,
 };
 
 #[allow(unused_imports)]
@@ -69,11 +69,11 @@ impl UniswapClient {
 }
 
 #[async_trait::async_trait]
-impl Client<Order> for UniswapClient {
+impl Client<SignedOrder> for UniswapClient {
     type ClientError = ClientError;
 
     /// returns as many open orders as possible
-    async fn firehose(&self) -> Result<Vec<Order>, Self::ClientError> {
+    async fn firehose(&self) -> Result<Vec<SignedOrder>, Self::ClientError> {
         let res = self
             .get_orders_with_params(ApiParams {
                 limit: 10,
@@ -82,42 +82,42 @@ impl Client<Order> for UniswapClient {
             })
             .await?;
 
-        Ok(Vec::<Order>::try_from(res)?)
+        Ok(Vec::<SignedOrder>::try_from(res)?)
     }
 }
 
 // todo! uniswap api labels exlusive dutch as a dutch
-impl TryFrom<OrderResponseInner> for Order {
+impl TryFrom<OrderResponseInner> for SignedOrder {
     type Error = AlloySolTypeError;
 
     fn try_from(order: OrderResponseInner) -> Result<Self, Self::Error> {
+        // clone because were gonna consumer order
         let sig = order.signature.clone();
 
-        Ok(Self::new(
-            match order.order_type {
-                OrderType::Dutch => {
-                    warn!("uniswap api returned a dutch order, but it should be really an exclusive dutch order");
-                    OrderInner::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
-                    // see todo
-                }
-                OrderType::Limit => OrderInner::from(LimitOrder::try_from(order.encoded_order)?),
-                OrderType::ExclusiveDutch => {
-                    OrderInner::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
-                }
-            },
-            sig,
-        ))
+        let order = match order.order_type {
+            OrderType::Dutch => {
+                warn!("uniswap api returned a dutch order, but it should be really an exclusive dutch order");
+                Order::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
+                // see todo
+            }
+            OrderType::Limit => Order::from(LimitOrder::try_from(order.encoded_order)?),
+            OrderType::ExclusiveDutch => {
+                Order::from(ExclusiveDutchOrder::try_from(order.encoded_order)?)
+            }
+        };
+
+        Ok(order.signed(sig))
     }
 }
 
-impl TryFrom<OrderResponse> for Vec<Order> {
+impl TryFrom<OrderResponse> for Vec<SignedOrder> {
     type Error = AlloySolTypeError;
 
     fn try_from(response: OrderResponse) -> Result<Self, Self::Error> {
         response
             .orders
             .into_iter()
-            .map(|order| Order::try_from(order))
+            .map(|order| SignedOrder::try_from(order))
             .collect()
     }
 }

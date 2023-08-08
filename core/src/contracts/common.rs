@@ -44,11 +44,4 @@ sol! {
         bytes sig;
         bytes32 hash;
     }
-
-    /// @dev external struct including a generic encoded order and swapper signature
-    ///  The order bytes will be parsed and mapped to a ResolvedOrder in the concrete reactor contract
-    struct SignedOrder {
-        bytes order;
-        bytes sig;
-    }
 }
